@@ -1,6 +1,6 @@
 from memory_scanner import MemoryScanner
-from shellcode_detector import ShellcodeDetector
 from pattern_manager import PatternManager
+from shellcode_detector import ShellcodeDetector
 
 
 def main():
@@ -13,10 +13,18 @@ def main():
 
     print("Scanning memory...")
     memory_regions = scanner.scan_memory()
+
     for addr, data in memory_regions:
-        print("Addr: %d"%addr)
-        if detector.detect_shellcode(data):
-            print(f"Potential shellcode detected at address: {hex(addr)}")
+        print(f"Analyzing region at address: {hex(addr)}, size: {len(data)} bytes")
+
+        result = detector.detect_shellcode(data)
+        is_detected, architecture, confidence, reason = result
+
+        if is_detected:
+            print(f"[!] Potential shellcode detected at address: {hex(addr)}")
+            print(f"    Architecture: {architecture}")
+            print(f"    Confidence: {confidence:.2f}")
+            print(f"    Reason: {reason}")
 
 
 if __name__ == "__main__":

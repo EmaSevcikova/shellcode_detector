@@ -1,0 +1,132 @@
+# Architecture detection patterns
+architecture_patterns = {
+    "32bit": [
+        bytes([0xcd, 0x80]),  # int 0x80 (32-bit syscall)
+        bytes([0x89, 0xe3]),  # mov ebx, esp (common in 32-bit)
+        bytes([0x31, 0xdb]),  # xor ebx, ebx (32-bit arg register)
+        bytes([0x53]),  # push ebx (32-bit register)
+        bytes([0x89, 0xe1]),  # mov ecx, esp (32-bit arg register)
+        bytes([0x8d, 0x4c, 0x24]),  # lea ecx, [esp+X] (32-bit addressing)
+    ],
+    "64bit": [
+        bytes([0x0f, 0x05]),  # syscall (64-bit)
+        bytes([0x48]),  # REX prefix for 64-bit operations
+        bytes([0x48, 0x31, 0xff]),  # xor rdi, rdi (64-bit register)
+        bytes([0x48, 0x89, 0xe7]),  # mov rdi, rsp (64-bit register)
+        bytes([0x49]),  # REX prefix for r8-r15 registers
+    ]
+}
+
+# Behavior patterns organized by architecture and category
+behavior_patterns = {
+    "32bit": {
+        "syscall": [
+            bytes([0xcd, 0x80])  # int 0x80 (32-bit syscall)
+        ],
+        "execve": [
+            bytes([0xb0, 0x0b]),  # mov al, 11 (0x0b)
+            bytes([0x31, 0xc0, 0xb0, 0x0b]),  # xor eax, eax; mov al, 11
+            bytes([0x6a, 0x0b, 0x58]),  # push 11; pop eax
+            bytes([0xb8, 0x0b, 0x00, 0x00, 0x00]),  # mov eax, 11
+        ],
+        "shell_string": [
+            # /bin/sh variants (same as 64-bit)
+            bytes([0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68]),  # /bin/sh
+            bytes([0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68]),  # /bin//sh
+
+            # 32-bit mov instructions
+            bytes([0xb8, 0x2f, 0x62, 0x69, 0x6e]),  # mov eax, "/bin"
+            bytes([0xbb, 0x2f, 0x62, 0x69, 0x6e]),  # mov ebx, "/bin"
+            bytes([0x68, 0x2f, 0x73, 0x68, 0x00]),  # push "/sh\0"
+            bytes([0x68, 0x6e, 0x2f, 0x73, 0x68]),  # push "n/sh"
+            bytes([0x68, 0x2f, 0x62, 0x69, 0x6e]),  # push "/bin"
+        ],
+        # Add known specific shellcode patterns
+        "specific": [
+            bytes([0x31, 0xc0, 0x50, 0x68, 0x2f, 0x2f, 0x73, 0x68, 0x68, 0x2f,
+                   0x62, 0x69, 0x6e, 0x89, 0xe3, 0x50, 0x89, 0xe2, 0x53, 0x89,
+                   0xe1, 0xb0, 0x0b, 0xcd, 0x80])  # example 32-bit /bin/sh shellcode
+        ]
+    },
+    "64bit": {
+        "syscall": [
+            bytes([0x0f, 0x05])  # syscall instruction
+        ],
+        "execve": [
+            bytes([0xb0, 0x3b]),  # mov al, 59 (0x3b)
+            bytes([0x6a, 0x3b, 0x58]),  # push 59; pop rax
+            bytes([0x6a, 0x3b, 0x5f]),  # push 59; pop rdi
+            bytes([0xb8, 0x3b, 0x00, 0x00, 0x00]),  # mov eax, 59
+            bytes([0x48, 0xc7, 0xc0, 0x3b, 0x00, 0x00, 0x00]),  # mov rax, 59
+        ],
+        "shell_string": [
+            # /bin/sh variants
+            bytes([0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68]),  # /bin/sh
+            bytes([0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68]),  # /bin//sh
+
+            # Mov instructions loading /bin/sh
+            bytes([0x48, 0xb8, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68]),  # mov rax, "/bin/sh\0"
+            bytes([0x48, 0xbf, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68]),  # mov rdi, "/bin//sh"
+            bytes([0x48, 0xbb, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68]),  # mov rbx, "/bin/sh"
+
+            # Shifted strings with right shift operation
+            bytes([0x48, 0xbb, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0xff, 0x48, 0xc1, 0xeb, 0x08]),
+            bytes([0x48, 0xbb, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68, 0x48, 0xc1, 0xeb, 0x08]),
+        ],
+        "stack_arg": [
+            bytes([0x54, 0x5f]),  # push rsp; pop rdi (setting first arg)
+            bytes([0x54, 0x5e]),  # push rsp; pop rsi (setting second arg)
+            bytes([0x54, 0x5a]),  # push rsp; pop rdx (setting third arg)
+            bytes([0x31, 0xc0, 0x50]),  # xor eax, eax; push rax (NULL terminator)
+            bytes([0x48, 0x31, 0xd2]),  # xor rdx, rdx (NULL for envp)
+            bytes([0x52]),  # push rdx (NULL)
+            bytes([0x48, 0x99]),  # cqo (clear rdx by sign extending rax)
+            bytes([0x99]),  # cdq (clear edx by sign extending eax)
+        ],
+        "exit": [
+            bytes([0x6a, 0x3c, 0x58]),  # push 60 (0x3c); pop rax (exit syscall)
+            bytes([0xb0, 0x3c]),  # mov al, 60 (exit syscall)
+        ],
+        "specific": [
+            # Pattern 1: First sample pattern
+            bytes([0x48, 0xb8, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x00, 0x50, 0x54, 0x5f, 0x31, 0xc0, 0x50, 0xb0, 0x3b]),
+
+            # Pattern 2: Second sample pattern
+            bytes([0x6a, 0x42, 0x58, 0xfe, 0xc4, 0x48, 0x99, 0x52, 0x48, 0xbf, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68]),
+
+            # Pattern 3: Third sample pattern (with shift operation)
+            bytes([0x48, 0x31, 0xd2, 0x48, 0xbb, 0xff, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x48, 0xc1, 0xeb, 0x08]),
+
+            # Pattern 4: Fifth sample pattern
+            bytes([0x48, 0x31, 0xd2, 0x48, 0xbb, 0x2f, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x53, 0x54, 0x5f]),
+
+            # Pattern 5: Sixth sample pattern
+            bytes([0x48, 0x31, 0xf6, 0x56, 0x48, 0xbf, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x2f, 0x73, 0x68, 0x57, 0x54, 0x5f, 0x6a,
+                   0x3b, 0x58])
+        ]
+    }
+}
+
+# Define pattern combinations that indicate shellcode when found together
+pattern_combinations = {
+    "32bit": [
+        ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
+        ["execve", "shell_string"]  # Just execve and shell string might be enough
+    ],
+    "64bit": [
+        ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
+        ["syscall", "execve", "stack_arg"],  # Syscall with execve and stack argument setup
+        ["execve", "shell_string", "stack_arg"],  # Execve with shell string and stack setup
+        ["syscall", "shell_string", "stack_arg"]  # Syscall with shell string and stack setup
+    ]
+}
+
+# Confidence values for each component category
+component_confidence = {
+    "syscall": 0.2,
+    "execve": 0.3,
+    "shell_string": 0.4,
+    "stack_arg": 0.2,
+    "exit": 0.1,
+    "specific": 0.8  # High confidence for specific known patterns
+}

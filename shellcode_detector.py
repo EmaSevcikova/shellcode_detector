@@ -64,19 +64,11 @@ class ShellcodeDetector:
 
         # Simple pattern matching for individual components
         component_matches = []
-        patterns = self.pattern_manager.shellcode_patterns.get(architecture, {})
 
-        if patterns.get("syscall") and any(find_pattern(data, p) != -1 for p in patterns["syscall"]):
-            component_matches.append(f"{architecture} syscall instruction")
-            confidence += 0.2
-
-        if patterns.get("execve_syscall") and any(find_pattern(data, p) != -1 for p in patterns["execve_syscall"]):
-            component_matches.append("execve syscall")
-            confidence += 0.3
-
-        if patterns.get("shell_string") and any(find_pattern(data, p) != -1 for p in patterns["shell_string"]):
-            component_matches.append("shell string")
-            confidence += 0.3
+        for category, patterns in self.pattern_manager.behavior_patterns[architecture].items():
+            if category != "specific" and any(find_pattern(data, p) != -1 for p in patterns):
+                component_matches.append(category)
+                confidence += self.pattern_manager.component_confidence.get(category, 0.1)
 
         if component_matches:
             reason += f"Found individual components: {', '.join(component_matches)}."
@@ -102,7 +94,7 @@ class ShellcodeDetector:
 #         0xe1, 0xb0, 0x0b, 0xcd, 0x80
 #     ])
 #
-#     pm = PatternManager()
+#     pm = PatternManager("patterns")
 #     detector = ShellcodeDetector(pm)
 #
 #     print("Testing 64-bit shellcode:")

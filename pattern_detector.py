@@ -2,7 +2,7 @@ from pattern_manager import PatternManager
 from pattern_utils import find_pattern
 
 
-class ShellcodeDetector:
+class PatternDetector:
     def __init__(self, pattern_manager):
         self.pattern_manager = pattern_manager
 

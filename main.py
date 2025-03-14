@@ -1,6 +1,6 @@
 from memory_scanner import MemoryScanner
 from pattern_manager import PatternManager
-from shellcode_detector import ShellcodeDetector
+from pattern_detector import PatternDetector
 
 
 def main():
@@ -9,7 +9,7 @@ def main():
     print(pid)
     scanner = MemoryScanner(pid)
     pattern_manager = PatternManager()
-    detector = ShellcodeDetector(pattern_manager)
+    detector = PatternDetector(pattern_manager)
 
     print("Scanning memory...")
     memory_regions = scanner.scan_memory()

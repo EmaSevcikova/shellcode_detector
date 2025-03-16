@@ -9,6 +9,7 @@ class PatternDetector:
     def detect_shellcode(self, data, use_combined=True, max_distance=100):
         """
         Detect shellcode using both specific and combined pattern matching.
+        Only reports shellcode when finding valid combinations, not just individual components.
 
         Args:
             data: The binary data to analyze
@@ -22,58 +23,68 @@ class PatternDetector:
         architecture = self.pattern_manager.determine_architecture(data)
         confidence = 0
         reason = ""
+        is_detected = False
 
         if architecture:
             if architecture == "mixed":
                 reason += "Mixed 32-bit and 64-bit code detected. "
-                confidence += 0.1
                 # Default to 64-bit analysis for mixed code
                 architecture = "64bit"
             else:
                 reason += f"{architecture} code detected. "
-                confidence += 0.2
         else:
             # Default to checking both architectures
             architecture = "64bit"  # Default, will check both
 
-        # Check for specific shellcode signatures (high confidence)
+        # First check: Look for specific known shellcode patterns (highest confidence)
         specific_match = False
 
         if self.pattern_manager.match_specific_shellcode(data, architecture):
             specific_match = True
-            confidence += 0.8
+            confidence = 0.9  # High confidence for exact matches
             reason += f"Matched known {architecture} shellcode signature. "
+            is_detected = True
 
         # If no specific match in primary architecture and architecture is uncertain, try the other
-        if not specific_match and architecture == "64bit" and self.pattern_manager.match_specific_shellcode(data,
-                                                                                                            "32bit"):
+        elif architecture == "64bit" and self.pattern_manager.match_specific_shellcode(data, "32bit"):
             architecture = "32bit"
-            confidence += 0.8
+            confidence = 0.9
             reason += "Matched known 32-bit shellcode signature. "
             specific_match = True
+            is_detected = True
 
-        # Check for combined patterns if enabled
+        # Second check: Look for valid combinations of patterns (if not already detected)
         if use_combined and not specific_match:
+            combined_match = False
+
             if self.pattern_manager.match_combined_shellcode(data, architecture, max_distance):
-                confidence += 0.6
+                combined_match = True
+                confidence = 0.7  # Good confidence for combined patterns
                 reason += f"Found combination of {architecture} shellcode components. "
+                is_detected = True
+
+            # Try other architecture if primary didn't match
             elif architecture == "64bit" and self.pattern_manager.match_combined_shellcode(data, "32bit", max_distance):
                 architecture = "32bit"
-                confidence += 0.6
+                combined_match = True
+                confidence = 0.7
                 reason += "Found combination of 32-bit shellcode components. "
+                is_detected = True
 
-        # Simple pattern matching for individual components
+        # For debugging purposes, still identify individual components
+        # but don't use them for detection decisions
         component_matches = []
+        component_confidence = 0
 
         for category, patterns in self.pattern_manager.behavior_patterns[architecture].items():
             if category != "specific" and any(find_pattern(data, p) != -1 for p in patterns):
                 component_matches.append(category)
-                confidence += self.pattern_manager.component_confidence.get(category, 0.1)
+                component_confidence += self.pattern_manager.component_confidence.get(category, 0.1)
 
-        if component_matches:
-            reason += f"Found individual components: {', '.join(component_matches)}."
-
-        is_detected = confidence >= 0.5
+        if component_matches and not is_detected:
+            reason += f"Found individual components: {', '.join(component_matches)}. Not sufficient for shellcode detection."
+        elif component_matches:
+            reason += f" Individual components found: {', '.join(component_matches)}."
 
         return (is_detected, architecture, confidence, reason)
 

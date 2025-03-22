@@ -1,21 +1,4 @@
-# Architecture detection patterns for XOR decoders
-architecture_patterns = {
-    "32bit": [
-        bytes([0x31, 0xc9]),  # xor ecx, ecx (counter initialization)
-        bytes([0xf7, 0xe1]),  # mul ecx (counter initialization)
-        bytes([0x99]),         # cdq (clearing edx, often used in decoders)
-        bytes([0x81, 0xf1]),   # xor ecx, immediate (setting counter)
-        bytes([0x83, 0xf1]),   # xor ecx, small immediate (setting counter)
-    ],
-    "64bit": [
-        bytes([0x48, 0x31, 0xc9]),  # xor rcx, rcx (counter initialization)
-        bytes([0x48, 0xf7, 0xe1]),  # mul rcx (counter initialization)
-        bytes([0x48, 0x99]),        # cqo (clearing rdx, often used in decoders)
-        bytes([0x48, 0x83, 0xf1]),  # xor rcx, small immediate (setting counter)
-        bytes([0x48, 0x31, 0xff]),  # xor rdi, rdi (often register used for address)
-    ]
-}
-
+# detection patterns for XOR decoders
 # Behavior patterns organized by architecture and category
 behavior_patterns = {
     "32bit": {

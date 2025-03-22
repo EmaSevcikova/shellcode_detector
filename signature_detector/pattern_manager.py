@@ -1,5 +1,6 @@
 from pattern_utils import *
 from pattern_loader import PatternLoader
+from signature_detector.patterns.arch_patterns import architecture_patterns
 
 
 class PatternManager:
@@ -7,12 +8,10 @@ class PatternManager:
         self.loader = PatternLoader(patterns_dir)
         self.loader.load_patterns()
 
-        # Initialize collections for all patterns
-        self.architecture_patterns = {
-            "32bit": [],
-            "64bit": []
-        }
+        # Use imported architecture patterns directly
+        self.architecture_patterns = architecture_patterns
 
+        # Initialize collections for behavior patterns only
         self.behavior_patterns = {
             "32bit": {},
             "64bit": {}
@@ -25,18 +24,14 @@ class PatternManager:
 
         self.component_confidence = {}
 
-        # Load all patterns from all modules
+        # Load behavior patterns from all modules
         for module in self.loader.get_pattern_modules():
             self._load_module_patterns(module)
 
     def _load_module_patterns(self, module):
         """Load patterns from a single module into the combined collections"""
-        # Load architecture patterns
-        if hasattr(module, "architecture_patterns"):
-            for arch, patterns in module.architecture_patterns.items():
-                self.architecture_patterns[arch].extend(patterns)
-
-        # Load behavior patterns
+        # Skip loading architecture patterns since we import them directly
+        # Only load behavior patterns
         if hasattr(module, "behavior_patterns"):
             for arch, categories in module.behavior_patterns.items():
                 for category, patterns in categories.items():

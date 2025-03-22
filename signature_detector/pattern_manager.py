@@ -1,6 +1,7 @@
 from pattern_utils import *
 from pattern_loader import PatternLoader
 from signature_detector.patterns.arch_patterns import architecture_patterns
+from pattern_decision_tree import build_pattern_decision_tree
 
 
 class PatternManager:
@@ -25,6 +26,9 @@ class PatternManager:
         # Load behavior patterns from all modules
         for module in self.loader.get_pattern_modules():
             self._load_module_patterns(module)
+
+        # Build the decision tree after loading all patterns
+        self.decision_tree = build_pattern_decision_tree(self.pattern_combinations)
 
     def _load_module_patterns(self, module):
         """Load patterns from a single module into the combined collections"""
@@ -86,20 +90,11 @@ class PatternManager:
 
     def match_combined_shellcode(self, data, arch, max_distance=100):
         """
-        Look for combinations of patterns that indicate shellcode.
+        Look for combinations of patterns that indicate shellcode using the decision tree.
         Returns True if patterns from multiple categories are found within max_distance.
         """
-        combinations = self.pattern_combinations.get(arch, [])
-        if not combinations:
-            return False
+        # Use the decision tree to efficiently check for pattern combinations
+        is_match, matched_categories = self.decision_tree.match_patterns(
+            data, arch, self, max_distance)
 
-        for combination in combinations:
-            pattern_sets = []
-            for category in combination:
-                if category in self.behavior_patterns[arch]:
-                    pattern_sets.append(self.behavior_patterns[arch][category])
-
-            if pattern_sets and find_pattern_sets(data, pattern_sets, max_distance):
-                return True
-
-        return False
+        return is_match

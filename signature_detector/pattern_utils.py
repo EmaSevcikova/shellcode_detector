@@ -1,11 +1,11 @@
 def find_pattern(buffer, pattern, max_iter=0):
     """Find the first occurrence of a pattern in a buffer."""
-    buffer_length = len(buffer)
     pattern_length = len(pattern)
+    buffer_length = len(buffer)
     max_index = min(buffer_length - pattern_length + 1, max_iter if max_iter > 0 else buffer_length)
 
     for i in range(max_index):
-        if pattern in buffer[i:i + pattern_length]:
+        if buffer[i:i + pattern_length] == pattern:
             return i
     return -1
 

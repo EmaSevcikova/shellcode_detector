@@ -22,8 +22,6 @@ class PatternManager:
             "64bit": []
         }
 
-        self.component_confidence = {}
-
         # Load behavior patterns from all modules
         for module in self.loader.get_pattern_modules():
             self._load_module_patterns(module)
@@ -43,13 +41,6 @@ class PatternManager:
         if hasattr(module, "pattern_combinations"):
             for arch, combinations in module.pattern_combinations.items():
                 self.pattern_combinations[arch].extend(combinations)
-
-        # Load component confidence values
-        if hasattr(module, "component_confidence"):
-            for category, confidence in module.component_confidence.items():
-                # Use the highest confidence value if there are duplicates
-                if category not in self.component_confidence or confidence > self.component_confidence[category]:
-                    self.component_confidence[category] = confidence
 
     def determine_architecture(self, data):
         """

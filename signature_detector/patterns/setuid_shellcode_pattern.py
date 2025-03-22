@@ -85,7 +85,7 @@ component_confidence = {
 }
 
 # Additional sequences that often appear after setuid(0) to watch for
-follow_up_patterns = {
+related_patterns = {
     "32bit": [
         # setgid(0) sequence - often follows setuid(0)
         bytes([0x6a, 0x2e, 0x58, 0x31, 0xdb, 0xcd, 0x80]),  # push 0x2e; pop eax; xor ebx, ebx; int 0x80

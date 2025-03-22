@@ -71,15 +71,13 @@ class PatternDetector:
                 reason += "Found combination of 32-bit shellcode components. "
                 is_detected = True
 
-        # For debugging purposes, still identify individual components
-        # but don't use them for detection decisions
+        # For debugging purposes, identify individual components
+        # but explicitly mention they are not sufficient for detection
         component_matches = []
-        component_confidence = 0
 
         for category, patterns in self.pattern_manager.behavior_patterns[architecture].items():
             if category != "specific" and any(find_pattern(data, p) != -1 for p in patterns):
                 component_matches.append(category)
-                component_confidence += self.pattern_manager.component_confidence.get(category, 0.1)
 
         if component_matches and not is_detected:
             reason += f"Found individual components: {', '.join(component_matches)}. Not sufficient for shellcode detection."
@@ -87,41 +85,3 @@ class PatternDetector:
             reason += f" Individual components found: {', '.join(component_matches)}."
 
         return (is_detected, architecture, confidence, reason)
-
-
-# Example usage
-# def main():
-#     # Example shellcode bytes (64-bit)
-#     shellcode_64 = bytes([
-#         0x48, 0xb8, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x00,
-#         0x50, 0x54, 0x5f, 0x31, 0xc0, 0x50, 0xb0, 0x3b, 0x54, 0x5a,
-#         0x54, 0x5e, 0x0f, 0x05
-#     ])
-#
-#     # Example shellcode bytes (32-bit)
-#     shellcode_32 = bytes([
-#         0x31, 0xc0, 0x50, 0x68, 0x2f, 0x2f, 0x73, 0x68, 0x68, 0x2f,
-#         0x62, 0x69, 0x6e, 0x89, 0xe3, 0x50, 0x89, 0xe2, 0x53, 0x89,
-#         0xe1, 0xb0, 0x0b, 0xcd, 0x80
-#     ])
-#
-#     pm = PatternManager("patterns")
-#     detector = ShellcodeDetector(pm)
-#
-#     print("Testing 64-bit shellcode:")
-#     result_64 = detector.detect_shellcode(shellcode_64)
-#     print(f"Detection: {result_64[0]}")
-#     print(f"Architecture: {result_64[1]}")
-#     print(f"Confidence: {result_64[2]:.2f}")
-#     print(f"Reason: {result_64[3]}")
-#
-#     print("\nTesting 32-bit shellcode:")
-#     result_32 = detector.detect_shellcode(shellcode_32)
-#     print(f"Detection: {result_32[0]}")
-#     print(f"Architecture: {result_32[1]}")
-#     print(f"Confidence: {result_32[2]:.2f}")
-#     print(f"Reason: {result_32[3]}")
-#
-#
-# if __name__ == "__main__":
-#     main()

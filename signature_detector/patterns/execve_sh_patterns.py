@@ -64,10 +64,10 @@ behavior_patterns = {
             bytes([0x48, 0x99]),  # cqo (clear rdx by sign extending rax)
             bytes([0x99]),  # cdq (clear edx by sign extending eax)
         ],
-        "exit": [
-            bytes([0x6a, 0x3c, 0x58]),  # push 60 (0x3c); pop rax (exit syscall)
-            bytes([0xb0, 0x3c]),  # mov al, 60 (exit syscall)
-        ],
+        # "exit": [
+        #     bytes([0x6a, 0x3c, 0x58]),  # push 60 (0x3c); pop rax (exit syscall)
+        #     bytes([0xb0, 0x3c]),  # mov al, 60 (exit syscall)
+        # ],
         "specific": [
             # Pattern 1: First sample pattern
             bytes([0x48, 0xb8, 0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x00, 0x50, 0x54, 0x5f, 0x31, 0xc0, 0x50, 0xb0, 0x3b]),

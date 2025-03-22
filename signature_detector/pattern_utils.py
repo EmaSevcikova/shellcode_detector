@@ -1,36 +1,22 @@
-# pattern_utils.py
 def find_pattern(buffer, pattern, max_iter=0):
     """Find the first occurrence of a pattern in a buffer."""
-    pattern_length = len(pattern)
     buffer_length = len(buffer)
+    pattern_length = len(pattern)
     max_index = min(buffer_length - pattern_length + 1, max_iter if max_iter > 0 else buffer_length)
 
     for i in range(max_index):
-        if all(
-                pattern[j] is None or
-                (isinstance(pattern[j], int) and pattern[j] > 0xF0) or
-                buffer[i + j] == pattern[j]
-                for j in range(pattern_length)
-        ):
+        if pattern in buffer[i:i + pattern_length]:
             return i
     return -1
 
 
 def find_all_patterns(buffer, pattern, max_iter=0):
     """Find all occurrences of a pattern in a buffer."""
-    pattern_length = len(pattern)
     buffer_length = len(buffer)
+    pattern_length = len(pattern)
     max_index = min(buffer_length - pattern_length + 1, max_iter if max_iter > 0 else buffer_length)
 
-    return [
-        i for i in range(max_index)
-        if all(
-            pattern[j] is None or
-            (isinstance(pattern[j], int) and pattern[j] > 0xF0) or
-            buffer[i + j] == pattern[j]
-            for j in range(pattern_length)
-        )
-    ]
+    return [i for i in range(max_index) if pattern in buffer[i:i + pattern_length]]
 
 
 def find_pattern_sets(buffer, pattern_sets, max_distance=100):
@@ -57,10 +43,7 @@ def find_pattern_sets(buffer, pattern_sets, max_distance=100):
 
         # Check if all remaining pattern sets can be found in the search buffer
         if all(
-                any(
-                    find_pattern(search_buffer, pattern) != -1
-                    for pattern in pattern_set
-                )
+                any(find_pattern(search_buffer, pattern) != -1 for pattern in pattern_set)
                 for pattern_set in pattern_sets[1:]
         ):
             return True

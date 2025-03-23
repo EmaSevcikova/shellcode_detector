@@ -46,9 +46,6 @@ class MemoryScanner:
             r'\.so(\.\d+)*$',  # Matches .so, .so.1, .so.1.2, etc.
             r'/lib/',  # Libraries in /lib/ directory
             r'/usr/lib/',  # Libraries in /usr/lib/ directory
-            r'/system/lib/',  # Android libraries
-            r'\.dll$',  # Windows DLLs (for compatibility)
-            r'\.dylib$'  # macOS dynamic libraries
         ]
 
         for pattern in lib_patterns:

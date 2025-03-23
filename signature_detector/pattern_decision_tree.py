@@ -1,10 +1,12 @@
 from pattern_utils import find_pattern
 
+
 class PatternNode:
-    def __init__(self, category=None, is_terminal=False):
+    def __init__(self, category=None, is_terminal=False, combo_name=None):
         self.category = category  # Pattern category to match
         self.children = []  # Child nodes
         self.is_terminal = is_terminal  # True if this node represents a complete pattern combination
+        self.combo_name = combo_name  # Name of the pattern combination (for terminal nodes)
 
     def add_child(self, node):
         """Add a child node to this node"""
@@ -28,11 +30,24 @@ class PatternDecisionTree:
             self.architectures[arch] = arch_root
 
             # Add each combination as a path in the tree
-            for combination in combinations:
+            for i, combination in enumerate(combinations):
                 current_node = arch_root
 
+                # Extract combination name if present
+                combo_name = None
+                if isinstance(combination, dict):
+                    combo_name = combination.get('name', f'combination_{i}')
+                    categories = combination.get('required_categories', [])
+                else:
+                    # Handle backward compatibility with old format
+                    # Ensure we have a default name even for unnamed combinations
+                    categories = combination
+                    combo_name = f'combination_{i}'
+
+                print(f"DEBUG: Building tree for combination: {combo_name} with categories: {categories}")
+
                 # Add nodes for each category in the combination
-                for i, category in enumerate(combination):
+                for i, category in enumerate(categories):
                     # Check if this category already exists as a child
                     found = False
                     for child in current_node.children:
@@ -43,47 +58,72 @@ class PatternDecisionTree:
 
                     if not found:
                         # Create a new node for this category
-                        is_terminal = (i == len(combination) - 1)
-                        new_node = PatternNode(category, is_terminal)
+                        is_terminal = (i == len(categories) - 1)
+                        new_node = PatternNode(
+                            category,
+                            is_terminal,
+                            combo_name if is_terminal else None
+                        )
                         current_node.add_child(new_node)
                         current_node = new_node
 
-                    # Make the last node in the path a terminal node
-                    if i == len(combination) - 1:
+                    # Make the last node in the path a terminal node with the combo name
+                    if i == len(categories) - 1:
                         current_node.is_terminal = True
+                        current_node.combo_name = combo_name
 
-    def match_patterns(self, data, arch, pattern_manager, max_distance=100):
+    def match_patterns(self, data, arch, pattern_manager, max_distance=100, return_names=False):
         """
         Use the decision tree to efficiently check if data matches any pattern combination
         for the given architecture.
 
-        Returns: (is_match, matched_categories)
+        Returns: (is_match, matched_categories, matched_combo_names) if return_names=True
+                 (is_match, matched_categories, []) if return_names=False
         """
         if arch not in self.architectures:
-            return False, []
+            return False, [], []
 
         # Get the root node for this architecture
         root = self.architectures[arch]
 
         # Start DFS from the root node
-        return self._dfs_match(root, data, [], pattern_manager, arch, max_distance)
+        is_match, matched_categories, matched_names = self._dfs_match(
+            root, data, [], [], pattern_manager, arch, max_distance)
 
-    def _dfs_match(self, node, data, matched_categories, pattern_manager, arch, max_distance):
+        # Debug print to see what's happening
+        print(f"DEBUG: _dfs_match returned is_match={is_match}, matched_categories={matched_categories}, matched_names={matched_names}")
+
+        return is_match, matched_categories, matched_names if return_names else []
+
+    def _dfs_match(self, node, data, matched_categories, matched_names, pattern_manager, arch, max_distance):
         """
         Depth-first search through the decision tree to find a matching pattern combination
         """
         # If this is a terminal node and we've matched all categories, we have a match
         if node.is_terminal and len(matched_categories) > 0:
-            return True, matched_categories
+            # Add the combination name if it exists
+            if node.combo_name and node.combo_name not in matched_names:
+                matched_names.append(node.combo_name)
+                print(f"DEBUG: Found terminal node with name: {node.combo_name}")
+            return True, matched_categories, matched_names
 
         # If this is the root node, check all children
         if node.category is None:
+            final_match = False
+            final_categories = []
+            final_names = []
+
             for child in node.children:
-                is_match, categories = self._dfs_match(child, data, matched_categories.copy(),
-                                                       pattern_manager, arch, max_distance)
+                is_match, categories, names = self._dfs_match(
+                    child, data, matched_categories.copy(), matched_names.copy(),
+                    pattern_manager, arch, max_distance)
+
                 if is_match:
-                    return True, categories
-            return False, []
+                    final_match = True
+                    final_categories.extend([c for c in categories if c not in final_categories])
+                    final_names.extend([n for n in names if n not in final_names])
+
+            return final_match, final_categories, final_names
 
         # Otherwise, check if we can match this node's category
         category = node.category
@@ -91,32 +131,44 @@ class PatternDecisionTree:
 
         # Check if any pattern in this category matches the data
         category_matched = False
+        match_position = -1
+
         for pattern in behavior_patterns:
-            if find_pattern(data, pattern) != -1:
+            pos = find_pattern(data, pattern)
+            if pos != -1:
                 category_matched = True
+                match_position = pos
+                print(f"DEBUG: Matched category {category} at position {pos}")
                 break
 
         if not category_matched:
-            return False, []
+            return False, [], []
 
         # Add this category to the matched categories
         updated_matches = matched_categories + [category]
 
         # If this is a terminal node, we have a match
         if node.is_terminal:
-            return True, updated_matches
+            # Add the combination name if it exists
+            updated_names = matched_names.copy()
+            if node.combo_name and node.combo_name not in updated_names:
+                updated_names.append(node.combo_name)
+                print(f"DEBUG: Terminal node matched with name: {node.combo_name}")
+            return True, updated_matches, updated_names
 
         # Otherwise, check if any child node matches
         for child in node.children:
             # For efficiency, we need to check if the patterns are within max_distance
             # This is a simplification - a full implementation would check the exact distances
             # between pattern matches
-            is_match, categories = self._dfs_match(child, data, updated_matches,
-                                                   pattern_manager, arch, max_distance)
-            if is_match:
-                return True, categories
+            is_match, categories, names = self._dfs_match(
+                child, data, updated_matches, matched_names,
+                pattern_manager, arch, max_distance)
 
-        return False, []
+            if is_match:
+                return True, categories, names
+
+        return False, [], []
 
 
 # Helper function to create a decision tree from pattern combinations

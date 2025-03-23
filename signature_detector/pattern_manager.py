@@ -88,13 +88,25 @@ class PatternManager:
                 return True
         return False
 
-    def match_combined_shellcode(self, data, arch, max_distance=100):
+    def match_combined_shellcode(self, data, arch, max_distance=100, return_names=False):
         """
         Look for combinations of patterns that indicate shellcode using the decision tree.
-        Returns True if patterns from multiple categories are found within max_distance.
+
+        Args:
+            data: Binary data to analyze
+            arch: Architecture to check
+            max_distance: Maximum distance between related patterns
+            return_names: Whether to return the names of matched combinations
+
+        Returns:
+            If return_names is False: bool indicating if a combination was matched
+            If return_names is True: tuple (is_matched, list_of_combination_names)
         """
         # Use the decision tree to efficiently check for pattern combinations
-        is_match, matched_categories = self.decision_tree.match_patterns(
-            data, arch, self, max_distance)
+        is_match, matched_categories, matched_combo_names = self.decision_tree.match_patterns(
+            data, arch, self, max_distance, return_names)
 
-        return is_match
+        if return_names:
+            return is_match, matched_combo_names
+        else:
+            return is_match

@@ -1,6 +1,6 @@
 from pattern_utils import *
 from pattern_loader import PatternLoader
-from signature_detector.patterns.arch_patterns import architecture_patterns
+from patterns.arch_patterns import architecture_patterns
 from pattern_decision_tree import build_pattern_decision_tree
 
 

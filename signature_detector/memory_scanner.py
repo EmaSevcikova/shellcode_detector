@@ -13,6 +13,7 @@ MEM_IMAGE = 0x1000000
 MEM_MAPPED = 0x40000
 MEM_PRIVATE = 0x20000
 
+
 class MemoryScanner:
     def __init__(self, pid):
         self.pid = pid
@@ -35,8 +36,29 @@ class MemoryScanner:
             return True
         return False
 
+    def is_library(self, pathname):
+        """Check if the memory region is a library file."""
+        if not pathname:
+            return False
+
+        # Check if the pathname contains typical library patterns
+        lib_patterns = [
+            r'\.so(\.\d+)*$',  # Matches .so, .so.1, .so.1.2, etc.
+            r'/lib/',  # Libraries in /lib/ directory
+            r'/usr/lib/',  # Libraries in /usr/lib/ directory
+            r'/system/lib/',  # Android libraries
+            r'\.dll$',  # Windows DLLs (for compatibility)
+            r'\.dylib$'  # macOS dynamic libraries
+        ]
+
+        for pattern in lib_patterns:
+            if re.search(pattern, pathname):
+                return True
+
+        return False
+
     def scan_memory(self):
-        """Scan the memory of the process and return executable regions."""
+        """Scan the memory of the process and return executable regions, excluding libraries."""
         memory_regions = []
         maps_path = f"/proc/{self.pid}/maps"
         mem_path = f"/proc/{self.pid}/mem"
@@ -70,6 +92,11 @@ class MemoryScanner:
 
                 # Skip non-executable regions
                 if not self.is_executable(protection):
+                    continue
+
+                # Skip library regions
+                if self.is_library(pathname):
+                    print(f"Skipping library region: {hex(start)}-{hex(end)} ({pathname})")
                     continue
 
                 # Read the memory region

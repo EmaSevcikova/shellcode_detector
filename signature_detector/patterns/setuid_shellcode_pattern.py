@@ -76,14 +76,6 @@ pattern_combinations = {
     ]
 }
 
-# Confidence values for each component category
-component_confidence = {
-    "syscall": 0.2,
-    "setuid_syscall_num": 0.4,
-    "setuid_zero_arg": 0.4,
-    "specific": 0.9  # High confidence for specific known patterns
-}
-
 # Additional sequences that often appear after setuid(0) to watch for
 related_patterns = {
     "32bit": [

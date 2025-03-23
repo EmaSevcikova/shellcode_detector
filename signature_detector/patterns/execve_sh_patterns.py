@@ -96,18 +96,8 @@ pattern_combinations = {
     ],
     "64bit": [
         ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
-        ["syscall", "execve", "stack_arg"],  # Syscall with execve and stack argument setup
-        ["execve", "shell_string", "stack_arg"],  # Execve with shell string and stack setup
-        ["syscall", "shell_string", "stack_arg"]  # Syscall with shell string and stack setup
+        ["syscall", "execve", "shell_string","stack_arg"],  # Syscall with execve and stack argument setup
+        ["execve", "shell_string", "syscall"],  # Execve with shell string and stack setup
+        ["syscall", "shell_string", "execve"]  # Syscall with shell string and stack setup
     ]
-}
-
-# Confidence values for each component category
-component_confidence = {
-    "syscall": 0.2,
-    "execve": 0.3,
-    "shell_string": 0.4,
-    "stack_arg": 0.2,
-    "exit": 0.1,
-    "specific": 0.8  # High confidence for specific known patterns
 }

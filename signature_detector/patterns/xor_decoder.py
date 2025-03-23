@@ -93,22 +93,13 @@ pattern_combinations = {
     "32bit": [
         ["loop_setup", "xor_operation", "memory_access"],  # Loop with XOR and memory access
         ["jmp_call", "xor_operation", "memory_access"],    # Get-PC technique with XOR decoder
-        ["loop_setup", "xor_operation"],                  # Simple loop with XOR operations
+        # ["loop_setup", "xor_operation"],                  # Simple loop with XOR operations
         ["jmp_call", "loop_setup", "xor_operation"]       # JMP/CALL with loop and XOR
     ],
     "64bit": [
         ["loop_setup", "xor_operation", "memory_access"],  # Loop with XOR and memory access
         ["jmp_call", "xor_operation", "memory_access"],    # Get-PC technique with XOR decoder
-        ["loop_setup", "xor_operation"],                  # Simple loop with XOR operations
+        # ["loop_setup", "xor_operation"],                  # Simple loop with XOR operations
         ["jmp_call", "loop_setup", "xor_operation"]       # JMP/CALL with loop and XOR
     ]
-}
-
-# Confidence values for each component category
-component_confidence = {
-    "loop_setup": 0.25,
-    "memory_access": 0.2,
-    "xor_operation": 0.3,
-    "jmp_call": 0.15,
-    "specific": 0.9  # High confidence for specific known patterns
 }

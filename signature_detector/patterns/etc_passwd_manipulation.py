@@ -184,19 +184,3 @@ pattern_combinations = {
         ["open_passwd", "read_file", "write_file", "passwd_string"]  # Read-modify-write pattern on passwd
     ]
 }
-
-# Confidence values for each component category
-component_confidence = {
-    "syscall": 0.2,
-    "open_passwd": 0.3,
-    "read_file": 0.1,
-    "write_file": 0.2,
-    "close_file": 0.05,
-    "chmod_file": 0.25,
-    "execve": 0.3,
-    "passwd_string": 0.4,
-    "file_flags": 0.1,
-    "file_modes": 0.1,
-    "user_entry": 0.6,
-    "specific": 0.9  # High confidence for specific known patterns
-}

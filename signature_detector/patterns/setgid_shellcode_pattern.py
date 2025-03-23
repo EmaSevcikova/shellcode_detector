@@ -79,14 +79,6 @@ pattern_combinations = {
     ]
 }
 
-# Confidence values for each component category
-component_confidence = {
-    "syscall": 0.2,
-    "setgid_syscall_num": 0.4,
-    "setgid_zero_arg": 0.4,
-    "specific": 0.9  # High confidence for specific known patterns
-}
-
 # Common patterns that often appear before or after setgid(0)
 related_patterns = {
     "32bit": {

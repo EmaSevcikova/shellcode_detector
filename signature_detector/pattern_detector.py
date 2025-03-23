@@ -1,4 +1,4 @@
-from pattern_utils import find_pattern
+from signature_detector.pattern_utils import find_pattern
 
 
 class PatternDetector:
@@ -38,40 +38,27 @@ class PatternDetector:
         is_match, combo_names = self.pattern_manager.match_combined_shellcode(
             data, architecture, max_distance, return_names=True)
 
-        # Debug code to verify we're getting names back
-        print(f"DEBUG: match_combined_shellcode returned is_match={is_match}, combo_names={combo_names}")
-
-        if is_match:
-            # Only consider it detected if we have actually identified specific combinations
-            if combo_names:
-                reason += f"Found combination of {architecture} shellcode components."
-                is_detected = True
-                matched_combinations.extend(combo_names)
-            else:
-                # If we have a match but no combination names, there's an issue with the naming
-                # We'll create a generic name instead of returning nothing
-                reason += f"Found {architecture} shellcode pattern combination (unnamed)."
-                is_detected = True
-                matched_combinations.append(f"unnamed_{architecture}_combination")
+        # Only consider it detected if we have combination names
+        if is_match and combo_names:
+            reason += f"Found {architecture} shellcode pattern combinations."
+            is_detected = True
+            matched_combinations.extend(combo_names)
+            print(f"Detection: POSITIVE - Found {len(combo_names)} pattern combinations")
         # Try other architecture if primary didn't match
         elif architecture == "64bit":
             is_match, combo_names = self.pattern_manager.match_combined_shellcode(
                 data, "32bit", max_distance, return_names=True)
 
-            # Debug code
-            print(f"DEBUG: match_combined_shellcode for 32bit returned is_match={is_match}, combo_names={combo_names}")
-
-            if is_match:
+            # Only consider it detected if we have combination names
+            if is_match and combo_names:
                 architecture = "32bit"
-                if combo_names:
-                    reason += "Found combination of 32-bit shellcode components."
-                    is_detected = True
-                    matched_combinations.extend(combo_names)
-                else:
-                    # Same fallback for unnamed combinations
-                    reason += "Found 32-bit shellcode pattern combination (unnamed)."
-                    is_detected = True
-                    matched_combinations.append("unnamed_32bit_combination")
+                reason += "Found 32-bit shellcode pattern combinations."
+                is_detected = True
+                matched_combinations.extend(combo_names)
+                print(f"Detection: POSITIVE - Found {len(combo_names)} pattern combinations")
+
+        if not is_detected:
+            print(f"Detection: NEGATIVE")
 
         # Only collect and report individual components if no shellcode was detected, for informational purposes
         if not is_detected:

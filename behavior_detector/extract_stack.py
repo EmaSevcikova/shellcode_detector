@@ -2,7 +2,7 @@ import sys
 import os
 import binascii
 
-def extract_shellcode_after_nop_sled(pid, min_nop_sled_length=16, max_shellcode_length=256):
+def extract_shellcode_after_nop_sled(pid, min_nop_sled_length=5, max_shellcode_length=256):
     try:
         with open(f"/proc/{pid}/maps", 'r') as maps_file:
             mappings = maps_file.readlines()

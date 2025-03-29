@@ -71,6 +71,7 @@ def run_gdb_process(binary_path, payload):
     break func
     monitor-ret func
     run {payload}
+    info proc
     n
     n
     n
@@ -166,6 +167,8 @@ def run_signature_detection(pid):
     detected = False
 
     for addr, data in memory_regions:
+        # print(f"Analyzing region at address: {hex(addr)}, size: {len(data)} bytes")
+
         result = detector.detect_shellcode(data)
         is_detected, architecture, reason, matched_combinations = result
 
@@ -209,8 +212,8 @@ def main():
     binary_path = input("Enter path to binary: ")
 
     # Handle payload
-    payload_type = input("Enter payload type (string/python): ").lower()
-    if payload_type == "python":
+    payload_type = input("Enter payload type (string (s)/python (p)): ").lower()
+    if payload_type == "p":
         payload_script = input("Enter payload script path: ")
         payload = f"$(python3 {payload_script})"
     else:

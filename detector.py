@@ -57,6 +57,66 @@ def find_pid_with_pgrep(binary_path):
         print(f"[!] Error using pgrep: {e}")
         return None
 
+
+def extract_pid_from_info_proc(gdb_process):
+    """
+    Extract PID from GDB's 'info proc' command output
+    """
+    print("[*] Extracting PID using 'info proc'...")
+
+    try:
+        # Write the info proc command to GDB
+        gdb_process.stdin.write("info proc\n")
+        gdb_process.stdin.flush()
+
+        # Give GDB time to process the command
+        time.sleep(1)
+
+        # Read from GDB's stdout to get the output of info proc
+        output = ""
+
+        # Create a temporary file to capture GDB output
+        temp_output_file = "gdb_output_temp.txt"
+
+        # Send command to redirect output to file
+        gdb_process.stdin.write(f"set logging file {temp_output_file}\n")
+        gdb_process.stdin.write("set logging on\n")
+        gdb_process.stdin.write("info proc\n")
+        gdb_process.stdin.write("set logging off\n")
+        gdb_process.stdin.flush()
+
+        # Give GDB time to create and write to the file
+        time.sleep(2)
+
+        # Read from the temporary file
+        if os.path.exists(temp_output_file):
+            with open(temp_output_file, 'r') as f:
+                output = f.read()
+
+            # Clean up the temporary file
+            os.remove(temp_output_file)
+
+        # Parse the PID from the output
+        # Example output line: "process 12345"
+        for line in output.split('\n'):
+            if "process" in line:
+                parts = line.split()
+                for i, part in enumerate(parts):
+                    if part == "process" and i + 1 < len(parts):
+                        try:
+                            pid = int(parts[i + 1])
+                            print(f"[+] Found PID from 'info proc': {pid}")
+                            return pid
+                        except ValueError:
+                            pass
+
+        print("[!] Could not extract PID from 'info proc' output")
+        return None
+
+    except Exception as e:
+        print(f"[!] Error extracting PID from 'info proc': {e}")
+        return None
+
 def run_gdb_process(binary_path, payload):
     """
     Run the binary in GDB with monitoring and return the PID
@@ -71,10 +131,6 @@ def run_gdb_process(binary_path, payload):
     break func
     monitor-ret func
     run {payload}
-    info proc
-    n
-    n
-    n
     """
 
     print("[*] GDB commands prepared:")
@@ -82,7 +138,7 @@ def run_gdb_process(binary_path, payload):
 
     print("[*] Starting GDB process...")
 
-    # Start GDB in the background with shell=True to better handle command interpretation
+    # Start GDB in the background
     process = subprocess.Popen(
         ["gdb", "-q"],
         stdin=subprocess.PIPE,
@@ -118,32 +174,14 @@ def run_gdb_process(binary_path, payload):
 
     # Give GDB time to start and execute commands
     print("[*] Waiting for GDB to process commands...")
-
-    # Give GDB time to start and execute commands
     time.sleep(3)
 
-    # Use pgrep to find the PID directly
-    pid = find_pid_with_pgrep(binary_path)
+    # Extract PID using our new function
+    pid = extract_pid_from_info_proc(process)
 
+    # If the primary method fails, fall back to pgrep as a secondary method
     if pid is None:
-        print("[!] Couldn't determine PID using pgrep, trying alternative methods...")
-
-        # Try minimal GDB interaction to avoid excessive output
-        try:
-            process.stdin.write("info proc\n")
-            process.stdin.flush()
-            time.sleep(1)
-        except:
-            pass
-
-        # Try pgrep again after a short delay
-        time.sleep(2)
-        pid = find_pid_with_pgrep(binary_path)
-
-    if pid is None:
-        print("[!] Still couldn't find PID. Last attempt...")
-        # One final attempt with pgrep
-        time.sleep(2)
+        print("[!] Couldn't determine PID using 'info proc', trying pgrep...")
         pid = find_pid_with_pgrep(binary_path)
 
     if pid:

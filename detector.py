@@ -40,6 +40,22 @@ def log_stream(stream, prefix):
                     pass
     return None
 
+def find_pid_with_pgrep(binary_path):
+    """Find process PID using pgrep"""
+    try:
+        binary_name = os.path.basename(binary_path)
+        pgrep_output = subprocess.check_output(["pgrep", binary_name]).decode().strip()
+        if pgrep_output:
+            # Take the first PID if multiple are found
+            pid = int(pgrep_output.split('\n')[0])
+            print(f"[+] Found PID using pgrep: {pid}")
+            return pid
+        return None
+    except subprocess.CalledProcessError:
+        return None
+    except Exception as e:
+        print(f"[!] Error using pgrep: {e}")
+        return None
 
 def run_gdb_process(binary_path, payload):
     """
@@ -77,9 +93,6 @@ def run_gdb_process(binary_path, payload):
 
     print("[*] GDB process started. Setting up logging threads...")
 
-    # Set up threads to continuously read from stdout and stderr
-    pid_from_output = [None]  # Use a list to store the PID so we can modify it from the thread
-
     stdout_thread = threading.Thread(
         target=lambda: log_stream(process.stdout, "GDB stdout"),
         daemon=True
@@ -105,48 +118,37 @@ def run_gdb_process(binary_path, payload):
     # Give GDB time to start and execute commands
     print("[*] Waiting for GDB to process commands...")
 
-    # Manual PID extraction with timeout
-    pid = None
-    start_time = time.time()
-    timeout = 30  # seconds
+    # Give GDB time to start and execute commands
+    time.sleep(3)
 
-    while time.time() - start_time < timeout:
-        # Check if we got a PID from the output logging thread
-        if pid_from_output[0] is not None:
-            pid = pid_from_output[0]
-            print(f"[+] Successfully extracted PID from output: {pid}")
-            break
+    # Use pgrep to find the PID directly
+    pid = find_pid_with_pgrep(binary_path)
 
-        # If we can't get a PID from output, let's try to manually get it
+    if pid is None:
+        print("[!] Couldn't determine PID using pgrep, trying alternative methods...")
+
+        # Try minimal GDB interaction to avoid excessive output
         try:
-            # Alternative method to get PID: use the gdb 'info proc' command
-            print("[*] Trying to get PID using 'info proc' command...")
             process.stdin.write("info proc\n")
             process.stdin.flush()
+            time.sleep(1)
         except:
             pass
 
-        # Wait a bit before trying again
+        # Try pgrep again after a short delay
         time.sleep(2)
-
-        # If GDB has already exited, break the loop
-        if process.poll() is not None:
-            print(f"[!] GDB process exited with code {process.returncode}")
-            break
+        pid = find_pid_with_pgrep(binary_path)
 
     if pid is None:
-        print("[!] Couldn't determine PID of the debugged process within timeout period")
+        print("[!] Still couldn't find PID. Last attempt...")
+        # One final attempt with pgrep
+        time.sleep(2)
+        pid = find_pid_with_pgrep(binary_path)
 
-        # Last resort: try to use pgrep to find the process
-        try:
-            print("[*] Attempting to find PID using pgrep...")
-            binary_name = os.path.basename(binary_path)
-            pgrep_output = subprocess.check_output(["pgrep", binary_name]).decode().strip()
-            if pgrep_output:
-                pid = int(pgrep_output.split('\n')[0])
-                print(f"[+] Found PID using pgrep: {pid}")
-        except:
-            print("[!] Failed to find PID using pgrep")
+    if pid:
+        print(f"[+] Process running with PID: {pid}")
+    else:
+        print("[!] Failed to find process PID")
 
     return process, pid
 

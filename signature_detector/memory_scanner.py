@@ -54,8 +54,12 @@ class MemoryScanner:
 
         return False
 
+    def is_vdso(self, pathname):
+        """Check if the memory region is a vdso region."""
+        return pathname == "[vdso]"
+
     def scan_memory(self):
-        """Scan the memory of the process and return executable regions, excluding libraries."""
+        """Scan the memory of the process and return executable regions, excluding libraries and vdso."""
         memory_regions = []
         maps_path = f"/proc/{self.pid}/maps"
         mem_path = f"/proc/{self.pid}/mem"
@@ -94,6 +98,11 @@ class MemoryScanner:
                 # Skip library regions
                 if self.is_library(pathname):
                     print(f"Skipping library region: {hex(start)}-{hex(end)} ({pathname})")
+                    continue
+
+                # Skip vdso regions
+                if self.is_vdso(pathname):
+                    print(f"Skipping vdso region: {hex(start)}-{hex(end)} ({pathname})")
                     continue
 
                 # Read the memory region

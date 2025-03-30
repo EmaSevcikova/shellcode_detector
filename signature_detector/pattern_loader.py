@@ -14,14 +14,12 @@ class PatternLoader:
             print(f"Warning: Patterns directory '{self.patterns_dir}' does not exist!")
             return
 
-        # Get all python files in the patterns directory
         pattern_files = [f for f in os.listdir(self.patterns_dir)
                          if f.endswith('.py') and not f.startswith('__')]
 
         for file_name in pattern_files:
-            module_name = file_name[:-3]  # Remove .py extension
+            module_name = file_name[:-3]
             try:
-                # Load the module
                 module_path = os.path.join(self.patterns_dir, file_name)
                 spec = importlib.util.spec_from_file_location(module_name, module_path)
                 if spec is None:
@@ -32,9 +30,7 @@ class PatternLoader:
                 sys.modules[module_name] = module
                 spec.loader.exec_module(module)
 
-                # Store the module
                 self.pattern_modules.append(module)
-                print(f"Loaded pattern module: {module_name}")
             except Exception as e:
                 print(f"Error loading pattern file '{file_name}': {str(e)}")
 

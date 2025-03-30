@@ -2,49 +2,71 @@ from qiling import Qiling
 from qiling.const import QL_VERBOSE, QL_OS, QL_ARCH
 import capstone
 import os
+import sys
+import traceback
 
 
 def instruction_hook(ql, address, size, arch):
-    code = ql.mem.read(address, size)
+    try:
+        code = ql.mem.read(address, size)
 
-    if arch == '32':
-        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
-    elif arch == '64':
-        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-    else:
-        raise ValueError("Invalid architecture. Must be '32' or '64'")
+        if arch == '32':
+            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+        elif arch == '64':
+            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        else:
+            raise ValueError("Invalid architecture. Must be '32' or '64'")
 
-    for insn in md.disasm(code, address):
-        print(f"0x{insn.address:x}: {insn.mnemonic} {insn.op_str}")
+        for insn in md.disasm(code, address):
+            print(f"0x{insn.address:x}: {insn.mnemonic} {insn.op_str}")
+    except Exception as e:
+        print(f"Error in instruction hook: {str(e)}")
 
 
 def emulate_shellcode(shellcode_hex, arch='32'):
-    # current directory
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        # current directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    shellcode = bytes.fromhex(shellcode_hex)
+        # validate shellcode hex
+        try:
+            shellcode = bytes.fromhex(shellcode_hex)
+        except ValueError:
+            print("Error: Invalid shellcode hex string")
+            return
 
-    if arch == '32':
-        rootfs = os.path.join(script_dir, 'rootfs/x86_linux_glibc2.39')
-        archtype = QL_ARCH.X86
-    elif arch == '64':
-        rootfs = os.path.join(script_dir, 'rootfs/x8664_linux_glibc2.39')
-        archtype = QL_ARCH.X8664
-    else:
-        raise ValueError("Invalid architecture. Must be '32' or '64'")
+        if arch == '32':
+            rootfs = os.path.join(script_dir, 'rootfs/x86_linux_glibc2.39')
+            archtype = QL_ARCH.X86
+        elif arch == '64':
+            rootfs = os.path.join(script_dir, 'rootfs/x8664_linux_glibc2.39')
+            archtype = QL_ARCH.X8664
+        else:
+            print("Error: Invalid architecture. Must be '32' or '64'")
+            return
 
-    # debug information
-    print(f"Script directory: {script_dir}")
-    print(f"Looking for rootfs at: {rootfs}")
-    print(f"Directory exists: {os.path.exists(rootfs)}")
+        # debug information
+        print(f"Script directory: {script_dir}")
+        print(f"Looking for rootfs at: {rootfs}")
+        print(f"Directory exists: {os.path.exists(rootfs)}")
 
-    ql = Qiling(
-        code=shellcode,
-        rootfs=rootfs,
-        archtype=archtype,
-        ostype=QL_OS.LINUX,
-        verbose=QL_VERBOSE.DEBUG
-    )
+        # check if rootfs exists
+        if not os.path.exists(rootfs):
+            print(f"Error: Rootfs directory not found at {rootfs}")
+            return
 
-    ql.hook_code(lambda ql, address, size: instruction_hook(ql, address, size, arch))
-    ql.run()
+        try:
+            ql = Qiling(
+                code=shellcode,
+                rootfs=rootfs,
+                archtype=archtype,
+                ostype=QL_OS.LINUX,
+                verbose=QL_VERBOSE.DEBUG
+            )
+
+            ql.hook_code(lambda ql, address, size: instruction_hook(ql, address, size, arch))
+            ql.run()
+        except Exception as e:
+            print(f"Error during emulation: {str(e)}")
+    except Exception as e:
+        print(f"Error: {str(e)}")

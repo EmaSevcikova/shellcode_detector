@@ -203,9 +203,12 @@ def run_behavior_detection(pid):
         print("Failed to extract clean shellcode")
         return detected
 
-    # Run emulation to detect behaviors
-    emulate_shellcode(cleaned_shellcode)
-    detected = True
+    try:
+        emulate_shellcode(cleaned_shellcode)
+        detected = True
+    except Exception as e:
+        print(f"Emulation error: {str(e)}")
+
     return detected
 
 

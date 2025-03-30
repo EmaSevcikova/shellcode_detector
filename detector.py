@@ -4,6 +4,7 @@ import time
 import signal
 import sys
 import threading
+import queue
 
 # Add detector modules to path
 sys.path.append('./signature_detector')
@@ -21,176 +22,136 @@ from behavior_detector.extract_shellcode import extract_shellcode
 from behavior_detector.qiling_emulator import emulate_shellcode
 
 
-def log_stream(stream, prefix):
-    """Log output from a stream with a prefix"""
-    for line in iter(stream.readline, ''):
-        if not line:
-            break
-        print(f"{prefix}: {line.strip()}")
-        if "pid=" in line:
-            # Extract PID when it appears in output
-            pid_start = line.find("pid=") + 4
-            pid_end = line.find("]", pid_start)
-            if pid_start > 4 and pid_end > pid_start:
-                try:
-                    pid = int(line[pid_start:pid_end])
-                    print(f"[+] Detected process PID: {pid}")
-                    return pid
-                except ValueError:
-                    pass
-    return None
-
-def find_pid_with_pgrep(binary_path):
-    """Find process PID using pgrep"""
-    try:
-        binary_name = os.path.basename(binary_path)
-        pgrep_output = subprocess.check_output(["pgrep", binary_name]).decode().strip()
-        if pgrep_output:
-            # Take the first PID if multiple are found
-            pid = int(pgrep_output.split('\n')[0])
-            print(f"[+] Found PID using pgrep: {pid}")
-            return pid
-        return None
-    except subprocess.CalledProcessError:
-        return None
-    except Exception as e:
-        print(f"[!] Error using pgrep: {e}")
-        return None
-
-
-def extract_pid_from_info_proc(gdb_process):
-    """
-    Extract PID from GDB's 'info proc' command output
-    """
-    print("[*] Extracting PID using 'info proc'...")
-
-    try:
-        # Write the info proc command to GDB
-        gdb_process.stdin.write("info proc\n")
-        gdb_process.stdin.flush()
-
-        # Give GDB time to process the command
-        time.sleep(1)
-
-        # Read from GDB's stdout to get the output of info proc
-        output = ""
-
-        # Create a temporary file to capture GDB output
-        temp_output_file = "gdb_output_temp.txt"
-
-        # Send command to redirect output to file
-        gdb_process.stdin.write(f"set logging file {temp_output_file}\n")
-        gdb_process.stdin.write("set logging on\n")
-        gdb_process.stdin.write("info proc\n")
-        gdb_process.stdin.write("set logging off\n")
-        gdb_process.stdin.flush()
-
-        # Give GDB time to create and write to the file
-        time.sleep(2)
-
-        # Read from the temporary file
-        if os.path.exists(temp_output_file):
-            with open(temp_output_file, 'r') as f:
-                output = f.read()
-
-            # Clean up the temporary file
-            os.remove(temp_output_file)
-
-        # Parse the PID from the output
-        # Example output line: "process 12345"
-        for line in output.split('\n'):
-            if "process" in line:
-                parts = line.split()
-                for i, part in enumerate(parts):
-                    if part == "process" and i + 1 < len(parts):
-                        try:
-                            pid = int(parts[i + 1])
-                            print(f"[+] Found PID from 'info proc': {pid}")
-                            return pid
-                        except ValueError:
-                            pass
-
-        print("[!] Could not extract PID from 'info proc' output")
-        return None
-
-    except Exception as e:
-        print(f"[!] Error extracting PID from 'info proc': {e}")
-        return None
-
 def run_gdb_process(binary_path, payload):
     """
     Run the binary in GDB with monitoring and return the PID
+    Uses Python GDB interface to reliably get the PID
     """
     print("[*] Preparing GDB commands...")
 
-    # Create GDB commands with the correct path to ret_addr_monitor.py
+    # Start with basic setup commands - don't run the program yet
     gdb_commands = f"""
     file {binary_path}
     set disassemble-next-line on
     source anomaly_detector/ret_addr_monitor.py
     break func
     monitor-ret func
-    run {payload}
     """
 
-    print("[*] GDB commands prepared:")
-    print(gdb_commands)
+    print("[*] GDB commands prepared")
 
     print("[*] Starting GDB process...")
-
-    # Start GDB in the background
     process = subprocess.Popen(
         ["gdb", "-q"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1  # Line buffered
+        bufsize=1
     )
+    print("[*] GDB process started")
 
-    print("[*] GDB process started. Setting up logging threads...")
+    # Set up a buffer for output
+    full_output = []
 
-    stdout_thread = threading.Thread(
-        target=lambda: log_stream(process.stdout, "GDB stdout"),
-        daemon=True
-    )
-    stderr_thread = threading.Thread(
-        target=lambda: log_stream(process.stderr, "GDB stderr"),
-        daemon=True
-    )
+    # Function to read GDB output
+    def read_output():
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                if process.poll() is not None:
+                    break
+                continue
 
-    stdout_thread.start()
-    stderr_thread.start()
+            line = line.strip()
+            if line:
+                print(f"GDB> {line}")
+                full_output.append(line)
 
-    print("[*] Logging threads started. Sending commands to GDB...")
+    # Start the output reader thread
+    output_thread = threading.Thread(target=read_output)
+    output_thread.daemon = True
+    output_thread.start()
 
-    # Send commands to GDB
+    # Send initial setup commands
     try:
         process.stdin.write(gdb_commands)
         process.stdin.flush()
-        print("[*] Commands sent to GDB.")
+        print("[*] Initial commands sent to GDB")
+        time.sleep(2)  # Give time for commands to process
     except Exception as e:
         print(f"[!] Error sending commands to GDB: {e}")
+        return process, None
 
-    # Give GDB time to start and execute commands
-    print("[*] Waiting for GDB to process commands...")
-    time.sleep(3)
+    # Now run the program
+    try:
+        print("[*] Starting the target program in GDB...")
+        process.stdin.write(f"run {payload}\n")
+        process.stdin.write(f"print $ebp - 0x6c + 0x14\n")
+        process.stdin.write(f"next\n")
+        process.stdin.write(f"next\n")
+        process.stdin.flush()
+        time.sleep(3)  # Wait for the program to start
+    except Exception as e:
+        print(f"[!] Error starting program: {e}")
+        return process, None
 
-    # Extract PID using our new function
-    pid = extract_pid_from_info_proc(process)
+    # Get the PID explicitly after program is running
+    pid = None
 
-    # If the primary method fails, fall back to pgrep as a secondary method
-    if pid is None:
-        print("[!] Couldn't determine PID using 'info proc', trying pgrep...")
-        pid = find_pid_with_pgrep(binary_path)
+    try:
+        print("[*] Requesting PID from GDB...")
+        # Clear any previous output
+        process.stdout.flush()
+        full_output.clear()
 
-    if pid:
-        print(f"[+] Process running with PID: {pid}")
-    else:
-        print("[!] Failed to find process PID")
+        # Create a file to temporarily store the PID
+        pid_file = "gdb_pid.txt"
+
+        # Use Python GDB to write PID to file instead of stdout
+        pid_command = f"""python
+with open("{pid_file}", "w") as f:
+    f.write(str(gdb.selected_inferior().pid))
+end
+"""
+        process.stdin.write(pid_command)
+        process.stdin.flush()
+        time.sleep(1)
+
+        # Read PID from file
+        if os.path.exists(pid_file):
+            with open(pid_file, 'r') as f:
+                pid_str = f.read().strip()
+                try:
+                    pid = int(pid_str)
+                    print(f"[+] Got PID from file: {pid}")
+                except ValueError:
+                    print(f"[!] Invalid PID in file: {pid_str}")
+
+            # Clean up
+            os.remove(pid_file)
+    except Exception as e:
+        print(f"[!] Error getting PID: {e}")
+
+    if pid is None or pid == 1:  # Extra check to avoid using PID 1
+        print("[!] Failed to get valid PID or got system PID 1")
+        return process, None
 
     return process, pid
 
+
+def send_gdb_command(gdb_process, command):
+    """
+    Send a command to a running GDB process and flush the input
+    """
+    try:
+        gdb_process.stdin.write(f"{command}\n")
+        gdb_process.stdin.flush()
+        print(f"[*] Sent GDB command: {command}")
+        return True
+    except Exception as e:
+        print(f"[!] Error sending GDB command: {e}")
+        return False
 
 def run_signature_detection(pid):
     """
@@ -227,22 +188,25 @@ def run_behavior_detection(pid):
     """
     Run behavior-based detection on the process
     """
+    detected = False
     print(f"[*] Running behavior detection on PID {pid}")
     stack_shellcode = extract_shellcode_after_nop_sled(pid)
 
     if not stack_shellcode:
         print(f"No shellcode found in process {pid}")
-        return False
+        return detected
 
     cleaned_shellcode = extract_shellcode(stack_shellcode)
     print(f"[*] Extracted shellcode: {cleaned_shellcode[:20]}...")
 
     if not cleaned_shellcode:
         print("Failed to extract clean shellcode")
-        return False
+        return detected
 
     # Run emulation to detect behaviors
-    return emulate_shellcode(cleaned_shellcode)
+    emulate_shellcode(cleaned_shellcode)
+    detected = True
+    return detected
 
 
 def main():
@@ -284,26 +248,36 @@ def main():
         else:
             print("\n[*] No malicious behavior detected.")
 
-        # Wait for user input before terminating GDB
-        input("\nPress Enter to terminate the debugged process...")
+        # Interactive GDB mode
+        print("\n[*] Entering interactive mode. Type 'exit' to quit.")
+        while True:
+            cmd = input("GDB Command> ")
+            if cmd.lower() in ('exit', 'quit'):
+                break
+            send_gdb_command(gdb_process, cmd)
 
     finally:
         # Terminate GDB
         print("[*] Terminating GDB...")
         try:
-            gdb_process.stdin.write("quit\ny\n")
-            gdb_process.stdin.flush()
+            send_gdb_command(gdb_process, "quit")
+            send_gdb_command(gdb_process, "y")  # Confirm quit
             gdb_process.wait(timeout=5)
         except:
             print("[!] Error while cleanly terminating GDB")
+            # Force kill if needed
+            try:
+                gdb_process.kill()
+            except:
+                pass
 
-        # Make sure both GDB and the debugged process are terminated
+        # Make sure the debugged process is terminated
         if pid:
             try:
                 os.kill(pid, signal.SIGKILL)
                 print(f"[*] Killed process with PID {pid}")
             except:
-                print(f"[!] Could not kill process with PID {pid}")
+                print(f"[!] Could not kill process with PID {pid} (might already be terminated)")
 
 
 if __name__ == "__main__":

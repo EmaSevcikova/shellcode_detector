@@ -159,14 +159,14 @@ behavior_patterns = {
 pattern_combinations = {
     "32bit": [
         ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
-        ["syscall", "shell_string", "execve"],
+        ["execve", "shell_string", "syscall"],
         ["execve", "shell_string"]
     ],
     "64bit": [
         ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
         ["syscall", "execve", "shell_string", "stack_arg"],  # Syscall with execve and stack argument setup
         ["execve", "shell_string", "syscall"],
-        ["syscall", "shell_string", "execve"],
+        ["execve", "shell_string", "syscall"],
         ["execve", "shell_string"]
     ]
 }

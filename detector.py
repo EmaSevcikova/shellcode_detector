@@ -6,17 +6,14 @@ import sys
 import threading
 import queue
 
-# Add detector modules to path
 sys.path.append('./signature_detector')
 sys.path.append('./behavior_detector')
 sys.path.append('./anomaly_detector')
 
-# Import signature detection modules
 from signature_detector.memory_scanner import MemoryScanner
 from signature_detector.pattern_manager import PatternManager
 from signature_detector.pattern_detector import PatternDetector
 
-# Import behavior detection modules
 from behavior_detector.extract_stack import extract_shellcode_after_nop_sled
 from behavior_detector.extract_shellcode import extract_shellcode
 from behavior_detector.qiling_emulator import emulate_shellcode
@@ -29,10 +26,8 @@ def run_gdb_process(binary_path, payload):
     """
     print("[*] Preparing GDB commands...")
 
-    # Start with basic setup commands - don't run the program yet
     gdb_commands = f"""
     file {binary_path}
-    set disassemble-next-line on
     source anomaly_detector/ret_addr_monitor.py
     break func
     monitor-ret func
@@ -51,10 +46,13 @@ def run_gdb_process(binary_path, payload):
     )
     print("[*] GDB process started")
 
-    # Set up a buffer for output
+    # buffer for output
     full_output = []
 
-    # Function to read GDB output
+    # queue to pass data between threads
+    output_queue = queue.Queue()
+
+    #read GDB output
     def read_output():
         while True:
             line = process.stdout.readline()
@@ -67,23 +65,23 @@ def run_gdb_process(binary_path, payload):
             if line:
                 print(f"GDB> {line}")
                 full_output.append(line)
+                output_queue.put(line)
 
-    # Start the output reader thread
+    # start the output reader thread
     output_thread = threading.Thread(target=read_output)
     output_thread.daemon = True
     output_thread.start()
 
-    # Send initial setup commands
+    # initial setup commands
     try:
         process.stdin.write(gdb_commands)
         process.stdin.flush()
         print("[*] Initial commands sent to GDB")
-        time.sleep(2)  # Give time for commands to process
+        time.sleep(2)
     except Exception as e:
         print(f"[!] Error sending commands to GDB: {e}")
-        return process, None
+        return process, None, output_queue
 
-    # Now run the program
     try:
         print("[*] Starting the target program in GDB...")
         process.stdin.write(f"run {payload}\n")
@@ -91,24 +89,21 @@ def run_gdb_process(binary_path, payload):
         process.stdin.write(f"next\n")
         process.stdin.write(f"next\n")
         process.stdin.flush()
-        time.sleep(3)  # Wait for the program to start
+        time.sleep(3)
     except Exception as e:
         print(f"[!] Error starting program: {e}")
-        return process, None
+        return process, None, output_queue
 
-    # Get the PID explicitly after program is running
+    # get PID
     pid = None
 
     try:
         print("[*] Requesting PID from GDB...")
-        # Clear any previous output
         process.stdout.flush()
         full_output.clear()
 
-        # Create a file to temporarily store the PID
         pid_file = "gdb_pid.txt"
 
-        # Use Python GDB to write PID to file instead of stdout
         pid_command = f"""python
 with open("{pid_file}", "w") as f:
     f.write(str(gdb.selected_inferior().pid))
@@ -118,7 +113,7 @@ end
         process.stdin.flush()
         time.sleep(1)
 
-        # Read PID from file
+        # read PID
         if os.path.exists(pid_file):
             with open(pid_file, 'r') as f:
                 pid_str = f.read().strip()
@@ -128,16 +123,15 @@ end
                 except ValueError:
                     print(f"[!] Invalid PID in file: {pid_str}")
 
-            # Clean up
             os.remove(pid_file)
     except Exception as e:
         print(f"[!] Error getting PID: {e}")
 
-    if pid is None or pid == 1:  # Extra check to avoid using PID 1
+    if pid is None or pid == 1:
         print("[!] Failed to get valid PID or got system PID 1")
-        return process, None
+        return process, None, output_queue
 
-    return process, pid
+    return process, pid, output_queue
 
 
 def send_gdb_command(gdb_process, command):
@@ -152,6 +146,7 @@ def send_gdb_command(gdb_process, command):
     except Exception as e:
         print(f"[!] Error sending GDB command: {e}")
         return False
+
 
 def run_signature_detection(pid):
     """
@@ -212,11 +207,29 @@ def run_behavior_detection(pid):
     return detected
 
 
+def check_anomaly_detection(output_queue):
+    """
+    Check for return address anomalies in GDB output
+    """
+    alert_message = "[!] ALERT: POTENTIAL EXPLOIT DETECTED - Return address modified to point to stack!"
+
+    detected = False
+
+    while not output_queue.empty():
+        line = output_queue.get()
+        if alert_message in line:
+            detected = True
+            print("[+] Anomaly detected: Return address modification detected")
+            break
+
+    return detected
+
+
 def main():
-    # Configuration
+    # configuration
     binary_path = input("Enter path to binary: ")
 
-    # Handle payload
+    # handle payload
     payload_type = input("Enter payload type (string (s)/python (p)): ").lower()
     if payload_type == "p":
         payload_script = input("Enter payload script path: ")
@@ -224,9 +237,9 @@ def main():
     else:
         payload = input("Enter payload string: ")
 
-    # Run the process in GDB
+    # run the process in GDB
     print("[*] Starting process under GDB with monitoring...")
-    gdb_process, pid = run_gdb_process(binary_path, payload)
+    gdb_process, pid, output_queue = run_gdb_process(binary_path, payload)
 
     if pid is None:
         print("[!] Failed to get PID of the debugged process. Exiting.")
@@ -235,46 +248,55 @@ def main():
     print(f"[+] Process running with PID: {pid}")
 
     try:
-        # Run signature detection
         sig_detected = run_signature_detection(pid)
 
-        # Run behavior detection
         bhv_detected = run_behavior_detection(pid)
 
-        # Print consolidated results
+        anomaly_detected = check_anomaly_detection(output_queue)
+
         print("\n[+] Detection Summary:")
         print(f"    Signature detection: {'DETECTED' if sig_detected else 'Not detected'}")
         print(f"    Behavior detection: {'DETECTED' if bhv_detected else 'Not detected'}")
+        print(f"    Anomaly detection: {'DETECTED' if anomaly_detected else 'Not detected'}")
 
-        if sig_detected or bhv_detected:
+        if sig_detected or bhv_detected or anomaly_detected:
             print("\n[!] ALERT: Malicious behavior detected!")
         else:
             print("\n[*] No malicious behavior detected.")
 
-        # Interactive GDB mode
-        print("\n[*] Entering interactive mode. Type 'exit' to quit.")
-        while True:
-            cmd = input("GDB Command> ")
-            if cmd.lower() in ('exit', 'quit'):
-                break
-            send_gdb_command(gdb_process, cmd)
+        # # Interactive GDB mode
+        # print("\n[*] Entering interactive mode. Type 'exit' to quit.")
+        # while True:
+        #     cmd = input("GDB Command> ")
+        #     if cmd.lower() in ('exit', 'quit'):
+        #         break
+        #
+        #     # Send command to GDB
+        #     send_gdb_command(gdb_process, cmd)
+        #
+        #     # Check for new anomalies after each command
+        #     if not anomaly_detected:  # Only check if not already detected
+        #         anomaly_detected = check_anomaly_detection(output_queue)
+        #         if anomaly_detected:
+        #             print("\n[+] Detection Summary Update:")
+        #             print(f"    Signature detection: {'DETECTED' if sig_detected else 'Not detected'}")
+        #             print(f"    Behavior detection: {'DETECTED' if bhv_detected else 'Not detected'}")
+        #             print(f"    Anomaly detection: DETECTED")
+        #             print("\n[!] ALERT: Malicious behavior detected!")
 
     finally:
-        # Terminate GDB
         print("[*] Terminating GDB...")
         try:
             send_gdb_command(gdb_process, "quit")
-            send_gdb_command(gdb_process, "y")  # Confirm quit
+            send_gdb_command(gdb_process, "y")
             gdb_process.wait(timeout=5)
         except:
             print("[!] Error while cleanly terminating GDB")
-            # Force kill if needed
             try:
                 gdb_process.kill()
             except:
                 pass
 
-        # Make sure the debugged process is terminated
         if pid:
             try:
                 os.kill(pid, signal.SIGKILL)

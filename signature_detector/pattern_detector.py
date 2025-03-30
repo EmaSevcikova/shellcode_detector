@@ -1,4 +1,4 @@
-from signature_detector.pattern_utils import find_pattern
+from pattern_utils import find_pattern
 
 
 class PatternDetector:
@@ -17,7 +17,7 @@ class PatternDetector:
         Returns:
             Tuple of (is_detected, architecture, reason, matched_combinations)
         """
-        # Determine architecture
+        # determine architecture
         architecture = self.pattern_manager.determine_architecture(data)
         reason = ""
         is_detected = False
@@ -26,30 +26,25 @@ class PatternDetector:
         if architecture:
             if architecture == "mixed":
                 reason += "Mixed 32-bit and 64-bit code detected. "
-                # Default to 64-bit analysis for mixed code
                 architecture = "64bit"
             else:
                 reason += f"{architecture} code detected. "
         else:
-            # Default to checking both architectures
-            architecture = "64bit"  # Default, will check both
+            architecture = "64bit"
 
-        # Check for valid combinations of patterns in primary architecture
         is_match, combo_names = self.pattern_manager.match_combined_shellcode(
             data, architecture, max_distance, return_names=True)
 
-        # Only consider it detected if we have combination names
         if is_match and combo_names:
             reason += f"Found {architecture} shellcode pattern combinations."
             is_detected = True
             matched_combinations.extend(combo_names)
             print(f"Detection: POSITIVE - Found {len(combo_names)} pattern combinations")
-        # Try other architecture if primary didn't match
+
         elif architecture == "64bit":
             is_match, combo_names = self.pattern_manager.match_combined_shellcode(
                 data, "32bit", max_distance, return_names=True)
 
-            # Only consider it detected if we have combination names
             if is_match and combo_names:
                 architecture = "32bit"
                 reason += "Found 32-bit shellcode pattern combinations."
@@ -60,7 +55,6 @@ class PatternDetector:
         if not is_detected:
             print(f"Detection: NEGATIVE")
 
-        # Only collect and report individual components if no shellcode was detected, for informational purposes
         if not is_detected:
             component_matches = []
             for category, patterns in self.pattern_manager.behavior_patterns[architecture].items():

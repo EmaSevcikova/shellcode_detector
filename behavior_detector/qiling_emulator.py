@@ -1,6 +1,7 @@
 from qiling import Qiling
 from qiling.const import QL_VERBOSE, QL_OS, QL_ARCH
 import capstone
+import os
 
 
 def instruction_hook(ql, address, size, arch):
@@ -18,17 +19,24 @@ def instruction_hook(ql, address, size, arch):
 
 
 def emulate_shellcode(shellcode_hex, arch='32'):
+    # current directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     shellcode = bytes.fromhex(shellcode_hex)
 
     if arch == '32':
-        rootfs = r'rootfs/x86_linux_glibc2.39'
+        rootfs = os.path.join(script_dir, 'rootfs/x86_linux_glibc2.39')
         archtype = QL_ARCH.X86
     elif arch == '64':
-        rootfs = r'rootfs/x8664_linux_glibc2.39'
+        rootfs = os.path.join(script_dir, 'rootfs/x8664_linux_glibc2.39')
         archtype = QL_ARCH.X8664
     else:
         raise ValueError("Invalid architecture. Must be '32' or '64'")
+
+    # debug information
+    print(f"Script directory: {script_dir}")
+    print(f"Looking for rootfs at: {rootfs}")
+    print(f"Directory exists: {os.path.exists(rootfs)}")
 
     ql = Qiling(
         code=shellcode,

@@ -5,6 +5,7 @@ import signal
 import sys
 import threading
 import queue
+import argparse
 
 sys.path.append('./signature_detector')
 sys.path.append('./behavior_detector')
@@ -176,10 +177,11 @@ def run_signature_detection(pid):
             else:
                 print(f"    WARNING: No specific combinations identified despite detection")
 
-    return detected
+    architecture_num = architecture.replace("bit", "")
+    return detected, architecture_num
 
 
-def run_behavior_detection(pid):
+def run_behavior_detection(pid, arch):
     """
     Run behavior-based detection on the process
     """
@@ -199,7 +201,7 @@ def run_behavior_detection(pid):
         return detected
 
     try:
-        emulate_shellcode(cleaned_shellcode)
+        emulate_shellcode(cleaned_shellcode, arch)
         detected = True
     except Exception as e:
         print(f"Emulation error: {str(e)}")
@@ -219,40 +221,76 @@ def check_anomaly_detection(output_queue):
         line = output_queue.get()
         if alert_message in line:
             detected = True
-            print("[+] Anomaly detected: Return address modification detected")
+            print("[+] Anomaly detected: Execution from stack region detected")
             break
 
     return detected
 
 
 def main():
-    # configuration
-    binary_path = input("Enter path to binary: ")
+    # Configure argument parser
+    parser = argparse.ArgumentParser(description="Binary Analysis Tool")
+    parser.add_argument("binary_path", help="Path to the binary to analyze")
+    parser.add_argument("-a", "--arch", choices=["32", "64"], required=True,
+                        help="Architecture: 32 or 64 bit")
 
-    # handle payload
-    payload_type = input("Enter payload type (string (s)/python (p)): ").lower()
-    if payload_type == "p":
-        payload_script = input("Enter payload script path: ")
-        payload = f"$(python3 {payload_script})"
+    # Payload group - ensure only one can be used
+    payload_group = parser.add_mutually_exclusive_group(required=True)
+    payload_group.add_argument("-s", "--string", help="Payload as a string")
+    payload_group.add_argument("-p", "--python", help="Path to Python script that generates payload")
+
+    # Optional arguments
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("--interactive", action="store_false", help="Enable interactive GDB mode")
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Validate binary path
+    if not os.path.isfile(args.binary_path):
+        print(f"[!] Error: Binary file '{args.binary_path}' not found")
+        return 1
+
+    # Handle payload
+    if args.python:
+        if not os.path.isfile(args.python):
+            print(f"[!] Error: Python script '{args.python}' not found")
+            return 1
+        payload = f"$(python3 {args.python})"
     else:
-        payload = input("Enter payload string: ")
+        payload = args.string
 
-    # run the process in GDB
+    # Architecture
+    arch = "x86" if args.arch == "32" else "x86_64"
+
+    # Run the process in GDB
     print("[*] Starting process under GDB with monitoring...")
-    gdb_process, pid, output_queue = run_gdb_process(binary_path, payload)
+    gdb_process, pid, output_queue = run_gdb_process(args.binary_path, payload)
 
     if pid is None:
         print("[!] Failed to get PID of the debugged process. Exiting.")
-        return
+        return 1
 
     print(f"[+] Process running with PID: {pid}")
 
     try:
-        sig_detected = run_signature_detection(pid)
+        print("\n*************** START SIGNATURE DETECTION ***************")
+        sig_detected, detected_arch = run_signature_detection(pid)
+        # Use detected architecture if available, otherwise use the specified one
+        if detected_arch:
+            arch = detected_arch
+            print(f"[+] Detected architecture: {arch}")
+        else:
+            print(f"[+] Using specified architecture: {arch}")
+        print("\n*************** END SIGNATURE DETECTION ***************")
 
-        bhv_detected = run_behavior_detection(pid)
+        print("\n*************** START BEHAVIOR DETECTION ***************")
+        bhv_detected = run_behavior_detection(pid, arch)
+        print("\n*************** END BEHAVIOR DETECTION ***************")
 
+        print("\n*************** START ANOMALY DETECTION ***************")
         anomaly_detected = check_anomaly_detection(output_queue)
+        print("\n*************** END ANOMALY DETECTION ***************")
 
         print("\n[+] Detection Summary:")
         print(f"    Signature detection: {'DETECTED' if sig_detected else 'Not detected'}")
@@ -264,25 +302,30 @@ def main():
         else:
             print("\n[*] No malicious behavior detected.")
 
-        # # Interactive GDB mode
-        # print("\n[*] Entering interactive mode. Type 'exit' to quit.")
-        # while True:
-        #     cmd = input("GDB Command> ")
-        #     if cmd.lower() in ('exit', 'quit'):
-        #         break
-        #
-        #     # Send command to GDB
-        #     send_gdb_command(gdb_process, cmd)
-        #
-        #     # Check for new anomalies after each command
-        #     if not anomaly_detected:  # Only check if not already detected
-        #         anomaly_detected = check_anomaly_detection(output_queue)
-        #         if anomaly_detected:
-        #             print("\n[+] Detection Summary Update:")
-        #             print(f"    Signature detection: {'DETECTED' if sig_detected else 'Not detected'}")
-        #             print(f"    Behavior detection: {'DETECTED' if bhv_detected else 'Not detected'}")
-        #             print(f"    Anomaly detection: DETECTED")
-        #             print("\n[!] ALERT: Malicious behavior detected!")
+        # Interactive GDB mode (unless disabled)
+        if not args.interactive:
+            print("\n[*] Entering interactive mode. Type 'exit' to quit.")
+            while True:
+                try:
+                    cmd = input("GDB Command> ")
+                    if cmd.lower() in ('exit', 'quit'):
+                        break
+
+                    # Send command to GDB
+                    send_gdb_command(gdb_process, cmd)
+
+                    # Check for new anomalies after each command
+                    if not anomaly_detected:  # Only check if not already detected
+                        anomaly_detected = check_anomaly_detection(output_queue)
+                        if anomaly_detected:
+                            print("\n[+] Detection Summary Update:")
+                            print(f"    Signature detection: {'DETECTED' if sig_detected else 'Not detected'}")
+                            print(f"    Behavior detection: {'DETECTED' if bhv_detected else 'Not detected'}")
+                            print(f"    Anomaly detection: DETECTED")
+                            print("\n[!] ALERT: Malicious behavior detected!")
+                except KeyboardInterrupt:
+                    print("\n[*] Interrupted. Exiting interactive mode.")
+                    break
 
     finally:
         print("[*] Terminating GDB...")
@@ -304,6 +347,8 @@ def main():
             except:
                 print(f"[!] Could not kill process with PID {pid} (might already be terminated)")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

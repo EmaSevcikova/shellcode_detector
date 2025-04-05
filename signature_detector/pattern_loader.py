@@ -7,6 +7,7 @@ class PatternLoader:
     def __init__(self, patterns_dir="patterns"):
         self.patterns_dir = patterns_dir
         self.pattern_modules = []
+        self.pattern_names = {}  # Store mapping of modules to their names
 
     def load_patterns(self):
         """Load all pattern modules from the patterns directory"""
@@ -30,6 +31,12 @@ class PatternLoader:
                 sys.modules[module_name] = module
                 spec.loader.exec_module(module)
 
+                # Extract the name from the module if present
+                if hasattr(module, "name"):
+                    self.pattern_names[module_name] = module.name
+                else:
+                    self.pattern_names[module_name] = module_name  # Use filename as fallback
+
                 self.pattern_modules.append(module)
             except Exception as e:
                 print(f"Error loading pattern file '{file_name}': {str(e)}")
@@ -37,3 +44,7 @@ class PatternLoader:
     def get_pattern_modules(self):
         """Return all loaded pattern modules"""
         return self.pattern_modules
+
+    def get_pattern_names(self):
+        """Return the mapping of module names to pattern names"""
+        return self.pattern_names

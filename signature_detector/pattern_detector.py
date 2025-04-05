@@ -15,13 +15,14 @@ class PatternDetector:
             max_distance: Maximum distance between related patterns
 
         Returns:
-            Tuple of (is_detected, architecture, reason, matched_combinations)
+            Tuple of (is_detected, architecture, reason, matched_combinations, matched_pattern_names)
         """
         # determine architecture
         architecture = self.pattern_manager.determine_architecture(data)
         reason = ""
         is_detected = False
         matched_combinations = []
+        matched_pattern_names = []  # New list to store pattern names
 
         if architecture:
             if architecture == "mixed":
@@ -32,17 +33,19 @@ class PatternDetector:
         else:
             architecture = "64bit"
 
-        is_match, combo_names = self.pattern_manager.match_combined_shellcode(
+        is_match, combo_names, pattern_names = self.pattern_manager.match_combined_shellcode(
             data, architecture, max_distance, return_names=True)
 
         if is_match and combo_names:
             reason += f"Found {architecture} shellcode pattern combinations."
             is_detected = True
             matched_combinations.extend(combo_names)
+            matched_pattern_names.extend(pattern_names)  # Add matched pattern names
             print(f"Detection: POSITIVE - Found {len(combo_names)} pattern combinations")
+            print(f"Pattern names: {', '.join(pattern_names)}")
 
         elif architecture == "64bit":
-            is_match, combo_names = self.pattern_manager.match_combined_shellcode(
+            is_match, combo_names, pattern_names = self.pattern_manager.match_combined_shellcode(
                 data, "32bit", max_distance, return_names=True)
 
             if is_match and combo_names:
@@ -50,18 +53,27 @@ class PatternDetector:
                 reason += "Found 32-bit shellcode pattern combinations."
                 is_detected = True
                 matched_combinations.extend(combo_names)
+                matched_pattern_names.extend(pattern_names)  # Add matched pattern names
                 print(f"Detection: POSITIVE - Found {len(combo_names)} pattern combinations")
+                print(f"Pattern names: {', '.join(pattern_names)}")
 
         if not is_detected:
             print(f"Detection: NEGATIVE")
 
-        if not is_detected:
             component_matches = []
+            component_pattern_names = []  # Track pattern names for component matches
+
             for category, patterns in self.pattern_manager.behavior_patterns[architecture].items():
                 if category != "specific" and any(find_pattern(data, p) != -1 for p in patterns):
                     component_matches.append(category)
 
+                    # Get pattern name for this component
+                    pattern_name = self.pattern_manager.get_pattern_name_for_category(architecture, category)
+                    if pattern_name and pattern_name not in component_pattern_names:
+                        component_pattern_names.append(pattern_name)
+
             if component_matches:
                 reason += f"Found individual components: {', '.join(component_matches)}. Not sufficient for shellcode detection."
+                matched_pattern_names.extend(component_pattern_names)  # Include these pattern names too
 
-        return (is_detected, architecture, reason, matched_combinations)
+        return (is_detected, architecture, reason, matched_combinations, matched_pattern_names)

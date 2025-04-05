@@ -23,6 +23,12 @@ class PatternManager:
             "64bit": []
         }
 
+        # Add mapping to track which categories belong to which module
+        self.category_to_module = {
+            "32bit": {},
+            "64bit": {}
+        }
+
         # Load behavior patterns from all modules
         for module in self.loader.get_pattern_modules():
             self._load_module_patterns(module)
@@ -30,9 +36,13 @@ class PatternManager:
         # Build the decision tree after loading all patterns
         self.decision_tree = build_pattern_decision_tree(self.pattern_combinations)
 
+        # Store the pattern names
+        self.pattern_names = self.loader.get_pattern_names()
+
     def _load_module_patterns(self, module):
         """Load patterns from a single module into the combined collections"""
-        # Skip loading architecture patterns since we import them directly
+        module_name = module.__name__
+
         # Only load behavior patterns
         if hasattr(module, "behavior_patterns"):
             for arch, categories in module.behavior_patterns.items():
@@ -41,10 +51,20 @@ class PatternManager:
                         self.behavior_patterns[arch][category] = []
                     self.behavior_patterns[arch][category].extend(patterns)
 
+                    # Track which module this category comes from
+                    self.category_to_module[arch][category] = module_name
+
         # Load pattern combinations
         if hasattr(module, "pattern_combinations"):
             for arch, combinations in module.pattern_combinations.items():
                 self.pattern_combinations[arch].extend(combinations)
+
+    def get_pattern_name_for_category(self, arch, category):
+        """Get the pattern name for a specific category"""
+        module_name = self.category_to_module.get(arch, {}).get(category)
+        if module_name:
+            return self.pattern_names.get(module_name, module_name)
+        return None
 
     def determine_architecture(self, data):
         """
@@ -100,13 +120,13 @@ class PatternManager:
 
         Returns:
             If return_names is False: bool indicating if a combination was matched
-            If return_names is True: tuple (is_matched, list_of_combination_names)
+            If return_names is True: tuple (is_matched, list_of_combination_names, list_of_pattern_names)
         """
         # Use the decision tree to efficiently check for pattern combinations
-        is_match, matched_categories, matched_combo_names = self.decision_tree.match_patterns(
+        is_match, matched_categories, matched_combo_names, matched_pattern_names = self.decision_tree.match_patterns(
             data, arch, self, max_distance, return_names)
 
         if return_names:
-            return is_match, matched_combo_names
+            return is_match, matched_combo_names, matched_pattern_names
         else:
             return is_match

@@ -72,18 +72,25 @@ class PatternDecisionTree:
         Use the decision tree to efficiently check if data matches any pattern combination
         for the given architecture.
 
-        Returns: (is_match, matched_categories, matched_combo_names) if return_names=True
-                 (is_match, matched_categories, []) if return_names=False
+        Returns: (is_match, matched_categories, matched_combo_names, matched_pattern_names) if return_names=True
+                 (is_match, matched_categories, [], []) if return_names=False
         """
         if arch not in self.architectures:
-            return False, [], []
+            return False, [], [], []
 
         all_matched_categories = set()
+        matched_pattern_names = set()  # Track unique pattern names
 
         for category, patterns in pattern_manager.behavior_patterns.get(arch, {}).items():
             for pattern in patterns:
                 if find_pattern(data, pattern) != -1:
                     all_matched_categories.add(category)
+
+                    # Get pattern name for this category and add it to matched names
+                    pattern_name = pattern_manager.get_pattern_name_for_category(arch, category)
+                    if pattern_name:
+                        matched_pattern_names.add(pattern_name)
+
                     break
 
         matched_combinations = []
@@ -97,10 +104,10 @@ class PatternDecisionTree:
 
             if required_categories and required_categories.issubset(all_matched_categories):
                 matched_combinations.append(combo_name)
-                print(f"DEBUG: Matched combination {combo_name}")
 
         is_match = len(matched_combinations) > 0
-        return is_match, list(all_matched_categories), matched_combinations if return_names else []
+        return is_match, list(all_matched_categories), matched_combinations if return_names else [], list(
+            matched_pattern_names)
 
     def _dfs_match(self, node, data, matched_categories, matched_names, pattern_manager, arch, max_distance):
         """
@@ -113,13 +120,13 @@ class PatternDecisionTree:
             for required_cat in node.required_categories:
                 if required_cat not in matched_categories:
                     all_required_matched = False
-                    print(f"DEBUG: Missing required category {required_cat} for {node.combo_name}")
+                    # print(f"DEBUG: Missing required category {required_cat} for {node.combo_name}")
                     break
 
             if all_required_matched:
                 if node.combo_name and node.combo_name not in matched_names:
                     matched_names.append(node.combo_name)
-                    print(f"DEBUG: Found complete match for {node.combo_name}")
+                    # print(f"DEBUG: Found complete match for {node.combo_name}")
                 return True, matched_categories, matched_names
             else:
                 return False, matched_categories, matched_names
@@ -150,7 +157,7 @@ class PatternDecisionTree:
             pos = find_pattern(data, pattern)
             if pos != -1:
                 category_matched = True
-                print(f"DEBUG: Matched category {category} at position {pos}")
+                # print(f"DEBUG: Matched category {category} at position {pos}")
                 break
 
         if not category_matched:
@@ -164,14 +171,14 @@ class PatternDecisionTree:
             for required_cat in node.required_categories:
                 if required_cat not in updated_matches:
                     all_required_matched = False
-                    print(f"DEBUG: Missing required category {required_cat} for {node.combo_name}")
+                    # print(f"DEBUG: Missing required category {required_cat} for {node.combo_name}")
                     break
 
             if all_required_matched:
                 updated_names = matched_names.copy()
                 if node.combo_name and node.combo_name not in updated_names:
                     updated_names.append(node.combo_name)
-                    print(f"DEBUG: Terminal node complete match: {node.combo_name}")
+                    # print(f"DEBUG: Terminal node complete match: {node.combo_name}")
                 return True, updated_matches, updated_names
             else:
                 return False, updated_matches, matched_names

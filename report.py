@@ -42,7 +42,8 @@ class ExploitReportGenerator:
     def set_signature_detection(self,
                                 result: str,
                                 patterns_matched: Optional[int] = None,
-                                pattern_combinations: Optional[List[str]] = None) -> None:
+                                pattern_combinations: Optional[List[str]] = None,
+                                patterns: Optional[List[str]] = None) -> None:
         """
         Set signature detection results.
         Full details will only be included if result is DETECTED.
@@ -55,6 +56,7 @@ class ExploitReportGenerator:
         if result.upper() == "DETECTED":
             signature_detection["patterns_matched"] = patterns_matched
             signature_detection["pattern_combinations"] = pattern_combinations
+            signature_detection["possible_shellcode"] = patterns
 
         self.report["detection"]["detection_methods"]["signature_detection"] = signature_detection
 

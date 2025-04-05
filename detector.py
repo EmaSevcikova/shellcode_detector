@@ -162,26 +162,35 @@ def run_signature_detection(pid):
     memory_regions = scanner.scan_memory()
     detected = False
     combinations = []
+    pattern_names = []  # New list to track pattern names
 
     for addr, data in memory_regions:
         # print(f"Analyzing region at address: {hex(addr)}, size: {len(data)} bytes")
 
         result = detector.detect_shellcode(data)
-        is_detected, architecture, reason, matched_combinations = result
+        is_detected, architecture, reason, matched_combinations, matched_pattern_names = result
 
         if is_detected:
             detected = True
             print(f"[!] Potential shellcode detected at address: {hex(addr)}")
             print(f"    Architecture: {architecture}")
             print(f"    Reason: {reason}")
+
             if matched_combinations:
                 print(f"    Matched pattern combinations: {', '.join(matched_combinations)}")
                 combinations.extend(matched_combinations)
             else:
                 print(f"    WARNING: No specific combinations identified despite detection")
 
+            if matched_pattern_names:
+                print(f"    Matched shellcode types: {', '.join(matched_pattern_names)}")
+                # Add unique pattern names to the list
+                for name in matched_pattern_names:
+                    if name not in pattern_names:
+                        pattern_names.append(name)
+
     architecture_num = architecture.replace("bit", "")
-    return detected, architecture_num, combinations
+    return detected, architecture_num, combinations, pattern_names
 
 
 def run_behavior_detection(pid, arch):
@@ -297,12 +306,13 @@ def main():
 
     try:
         print("\n*************** START SIGNATURE DETECTION ***************")
-        sig_detected, detected_arch, detected_patterns = run_signature_detection(pid)
+        sig_detected, detected_arch, detected_patterns, pattern_names = run_signature_detection(pid)
 
         report_generator.set_signature_detection(
             result="DETECTED" if sig_detected else "NOT_DETECTED",
             patterns_matched=len(detected_patterns) if detected_patterns else 0,
-            pattern_combinations=detected_patterns if detected_patterns else []
+            pattern_combinations=detected_patterns if detected_patterns else [],
+            patterns=pattern_names if pattern_names else []
         )
 
         if detected_arch:

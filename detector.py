@@ -6,6 +6,7 @@ import sys
 import threading
 import queue
 import argparse
+from report import ExploitReportGenerator
 
 sys.path.append('./signature_detector')
 sys.path.append('./behavior_detector')
@@ -160,6 +161,7 @@ def run_signature_detection(pid):
 
     memory_regions = scanner.scan_memory()
     detected = False
+    combinations = []
 
     for addr, data in memory_regions:
         # print(f"Analyzing region at address: {hex(addr)}, size: {len(data)} bytes")
@@ -174,11 +176,12 @@ def run_signature_detection(pid):
             print(f"    Reason: {reason}")
             if matched_combinations:
                 print(f"    Matched pattern combinations: {', '.join(matched_combinations)}")
+                combinations.extend(matched_combinations)
             else:
                 print(f"    WARNING: No specific combinations identified despite detection")
 
     architecture_num = architecture.replace("bit", "")
-    return detected, architecture_num
+    return detected, architecture_num, combinations
 
 
 def run_behavior_detection(pid, arch):
@@ -211,20 +214,36 @@ def run_behavior_detection(pid, arch):
 
 def check_anomaly_detection(output_queue):
     """
-    Check for return address anomalies in GDB output
+    Check for return address anomalies in GDB output and extract relevant information
     """
     alert_message = "[!] ALERT: POTENTIAL EXPLOIT DETECTED - Return address modified to point to stack!"
 
     detected = False
+    original_return_address = None
+    modified_return_address = None
+    stack_region = None
 
     while not output_queue.empty():
         line = output_queue.get()
+
         if alert_message in line:
             detected = True
             print("[+] Anomaly detected: Execution from stack region detected")
-            break
 
-    return detected
+        elif "[!] Original return address:" in line:
+            original_return_address = line.split(":")[-1].strip()
+
+        elif "[!] Modified to:" in line:
+            parts = line.split()
+            modified_return_address = parts[3]
+            stack_region = parts[-1]
+
+    return {
+        "detected": detected,
+        "original_return_address": original_return_address,
+        "modified_return_address": modified_return_address,
+        "stack_region": stack_region
+    }
 
 
 def main():
@@ -233,6 +252,7 @@ def main():
     parser.add_argument("binary_path", help="Path to the binary to analyze")
     parser.add_argument("-a", "--arch", choices=["32", "64"], required=True,
                         help="Architecture: 32 or 64 bit")
+    parser.add_argument("-o", "--output", help="Output file for the report (JSON)", default="exploit_report.json")
 
     # Payload group - ensure only one can be used
     payload_group = parser.add_mutually_exclusive_group(required=True)
@@ -243,13 +263,13 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--interactive", action="store_false", help="Enable interactive GDB mode")
 
-    # Parse arguments
     args = parser.parse_args()
 
-    # Validate binary path
     if not os.path.isfile(args.binary_path):
         print(f"[!] Error: Binary file '{args.binary_path}' not found")
         return 1
+
+    report_generator = ExploitReportGenerator()
 
     # Handle payload
     if args.python:
@@ -260,8 +280,8 @@ def main():
     else:
         payload = args.string
 
-    # Architecture
-    arch = "x86" if args.arch == "32" else "x86_64"
+    # arch = "x86" if args.arch == "32" else "x86_64"
+    arch = args.arch
 
     # Run the process in GDB
     print("[*] Starting process under GDB with monitoring...")
@@ -273,10 +293,18 @@ def main():
 
     print(f"[+] Process running with PID: {pid}")
 
+    report_generator.set_target_info(pid, args.binary_path)
+
     try:
         print("\n*************** START SIGNATURE DETECTION ***************")
-        sig_detected, detected_arch = run_signature_detection(pid)
-        # Use detected architecture if available, otherwise use the specified one
+        sig_detected, detected_arch, detected_patterns = run_signature_detection(pid)
+
+        report_generator.set_signature_detection(
+            result="DETECTED" if sig_detected else "NOT_DETECTED",
+            patterns_matched=len(detected_patterns) if detected_patterns else 0,
+            pattern_combinations=detected_patterns if detected_patterns else []
+        )
+
         if detected_arch:
             arch = detected_arch
             print(f"[+] Detected architecture: {arch}")
@@ -286,10 +314,41 @@ def main():
 
         print("\n*************** START BEHAVIOR DETECTION ***************")
         bhv_detected = run_behavior_detection(pid, arch)
+
+        # TODO
+        report_generator.set_behavior_detection(
+            result="DETECTED" if bhv_detected else "NOT_DETECTED"
+        )
+
         print("\n*************** END BEHAVIOR DETECTION ***************")
 
         print("\n*************** START ANOMALY DETECTION ***************")
-        anomaly_detected = check_anomaly_detection(output_queue)
+        anomaly_result = check_anomaly_detection(output_queue)
+        anomaly_detected = anomaly_result["detected"]
+
+        if anomaly_detected:
+            findings = [
+                f"Original return address: {anomaly_result['original_return_address']}",
+                f"Modified return address: {anomaly_result['modified_return_address']}",
+                f"Stack region: {anomaly_result['stack_region']}"
+            ]
+
+            report_generator.set_anomaly_detection(
+                result="DETECTED",
+                findings=findings
+            )
+
+            report_generator.set_exploit_details(
+                exploit_type="stack buffer overflow",
+                vulnerable_function="func",
+                mechanism="return address modification",
+                original_return_address=anomaly_result['original_return_address'],
+                modified_return_address=anomaly_result['modified_return_address'],
+                stack_region=anomaly_result['stack_region']
+            )
+        else:
+            report_generator.set_anomaly_detection(result="NOT_DETECTED")
+
         print("\n*************** END ANOMALY DETECTION ***************")
 
         print("\n[+] Detection Summary:")
@@ -299,10 +358,16 @@ def main():
 
         if sig_detected or bhv_detected or anomaly_detected:
             print("\n[!] ALERT: Malicious behavior detected!")
+            report_generator.set_status("MALICIOUS")
         else:
             print("\n[*] No malicious behavior detected.")
+            report_generator.set_status("BENIGN")
 
-        # Interactive GDB mode (unless disabled)
+        # Save the report
+        report_generator.save_report(args.output)
+        print(f"\n[+] Report saved to {args.output}")
+
+        # interactive GDB mode
         if not args.interactive:
             print("\n[*] Entering interactive mode. Type 'exit' to quit.")
             while True:
@@ -311,11 +376,9 @@ def main():
                     if cmd.lower() in ('exit', 'quit'):
                         break
 
-                    # Send command to GDB
                     send_gdb_command(gdb_process, cmd)
 
-                    # Check for new anomalies after each command
-                    if not anomaly_detected:  # Only check if not already detected
+                    if not anomaly_detected:
                         anomaly_detected = check_anomaly_detection(output_queue)
                         if anomaly_detected:
                             print("\n[+] Detection Summary Update:")

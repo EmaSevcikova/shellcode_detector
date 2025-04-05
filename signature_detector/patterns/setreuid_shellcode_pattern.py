@@ -1,3 +1,4 @@
+name = "privilege escalation using setreuid(0,0)"
 # Patterns for setreuid(0,0) shellcode detection
 behavior_patterns = {
     "32bit": {

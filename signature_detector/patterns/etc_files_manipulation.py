@@ -1,3 +1,4 @@
+name = "etc files manipulation pattern"
 # patterns for detecting manipulation with /etc/passwd, /etc/shadow and /etc/hosts files
 behavior_patterns = {
     "32bit": {

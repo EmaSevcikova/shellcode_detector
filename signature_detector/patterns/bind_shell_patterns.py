@@ -1,3 +1,4 @@
+name = "bind shell pattern"
 # Bind shell behavior patterns organized by architecture and category
 behavior_patterns = {
     "32bit": {

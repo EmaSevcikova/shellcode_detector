@@ -1,3 +1,4 @@
+name = "shell spawn pattern"
 # Behavior patterns organized by architecture and category
 behavior_patterns = {
     "32bit": {
@@ -159,14 +160,11 @@ behavior_patterns = {
 pattern_combinations = {
     "32bit": [
         ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
-        ["execve", "shell_string", "syscall"],
         ["execve", "shell_string"]
     ],
     "64bit": [
         ["syscall", "execve", "shell_string"],  # Combination of syscall, execve syscall number, and shell string
         ["syscall", "execve", "shell_string", "stack_arg"],  # Syscall with execve and stack argument setup
-        ["execve", "shell_string", "syscall"],
-        ["execve", "shell_string", "syscall"],
         ["execve", "shell_string"]
     ]
 }

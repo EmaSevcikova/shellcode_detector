@@ -1,3 +1,4 @@
+name = "privilege escalation using setgid(0)"
 # Patterns for setgid(0) shellcode detection
 # Behavior patterns organized by architecture and category
 behavior_patterns = {

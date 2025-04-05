@@ -1,3 +1,4 @@
+name = "privilege escalation using setuid(0)"
 # Patterns for setuid(0) shellcode detection
 # Behavior patterns organized by architecture and category
 behavior_patterns = {

@@ -21,19 +21,28 @@ from behavior_detector.extract_shellcode import extract_shellcode
 from behavior_detector.qiling_emulator import emulate_shellcode
 
 
-def run_gdb_process(binary_path, payload):
+def run_gdb_process(binary_path, payload, arch):
     """
     Run the binary in GDB with monitoring and return the PID
     Uses Python GDB interface to reliably get the PID
     """
     print("[*] Preparing GDB commands...")
 
-    gdb_commands = f"""
-    file {binary_path}
-    source anomaly_detector/ret_addr_monitor.py
-    break func
-    monitor-ret func
-    """
+    if arch == 32:
+        gdb_commands = f"""
+        file {binary_path}
+        source anomaly_detector/ret_addr_monitor.py
+        break func
+        monitor-ret func
+        """
+
+    else:
+        gdb_commands = f"""
+        file {binary_path}
+        source anomaly_detector/ret_addr_monitor_64bit.py
+        break func
+        monitor-ret func
+        """
 
     print("[*] GDB commands prepared")
 
@@ -294,7 +303,7 @@ def main():
 
     # Run the process in GDB
     print("[*] Starting process under GDB with monitoring...")
-    gdb_process, pid, output_queue = run_gdb_process(args.binary_path, payload)
+    gdb_process, pid, output_queue = run_gdb_process(args.binary_path, payload, arch)
 
     if pid is None:
         print("[!] Failed to get PID of the debugged process. Exiting.")

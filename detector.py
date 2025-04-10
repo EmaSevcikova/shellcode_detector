@@ -28,7 +28,7 @@ def run_gdb_process(binary_path, payload, arch):
     """
     print("[*] Preparing GDB commands...")
 
-    if arch == 32:
+    if arch == "32":
         gdb_commands = f"""
         file {binary_path}
         source anomaly_detector/ret_addr_monitor.py
@@ -96,7 +96,7 @@ def run_gdb_process(binary_path, payload, arch):
     try:
         print("[*] Starting the target program in GDB...")
         process.stdin.write(f"run {payload}\n")
-        process.stdin.write(f"print $ebp - 0x6c + 0x14\n")
+        process.stdin.write(f"print $ebp - 0x110 + 0x14\n")
         process.stdin.write(f"next\n")
         process.stdin.write(f"next\n")
         process.stdin.flush()
@@ -221,13 +221,16 @@ def run_behavior_detection(pid, arch):
         print("Failed to extract clean shellcode")
         return detected
 
+    syscalls = None
+    strings = None
+
     try:
-        emulate_shellcode(cleaned_shellcode, arch)
+        syscalls, strings = emulate_shellcode(cleaned_shellcode, arch)
         detected = True
     except Exception as e:
         print(f"Emulation error: {str(e)}")
 
-    return detected
+    return detected, syscalls, strings
 
 
 def check_anomaly_detection(output_queue):
@@ -332,11 +335,12 @@ def main():
         print("\n*************** END SIGNATURE DETECTION ***************")
 
         print("\n*************** START BEHAVIOR DETECTION ***************")
-        bhv_detected = run_behavior_detection(pid, arch)
+        bhv_detected, syscalls, strings = run_behavior_detection(pid, arch)
 
-        # TODO
         report_generator.set_behavior_detection(
-            result="DETECTED" if bhv_detected else "NOT_DETECTED"
+            result="DETECTED" if bhv_detected else "NOT_DETECTED",
+            syscalls=syscalls,
+            string_occurrences=strings
         )
 
         print("\n*************** END BEHAVIOR DETECTION ***************")

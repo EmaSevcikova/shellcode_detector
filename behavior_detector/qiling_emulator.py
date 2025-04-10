@@ -2,8 +2,6 @@ from qiling import Qiling
 from qiling.const import QL_VERBOSE, QL_OS, QL_ARCH
 import capstone
 import os
-import sys
-import traceback
 
 
 def instruction_hook(ql, address, size, arch):
@@ -33,7 +31,7 @@ def emulate_shellcode(shellcode_hex, arch='32'):
             shellcode = bytes.fromhex(shellcode_hex)
         except ValueError:
             print("Error: Invalid shellcode hex string")
-            return
+            return None, None
 
         if arch == '32':
             rootfs = os.path.join(script_dir, 'rootfs/x86_linux_glibc2.39')
@@ -43,7 +41,7 @@ def emulate_shellcode(shellcode_hex, arch='32'):
             archtype = QL_ARCH.X8664
         else:
             print("Error: Invalid architecture. Must be '32' or '64'")
-            return
+            return None, None
 
         # debug information
         print(f"Script directory: {script_dir}")
@@ -53,7 +51,7 @@ def emulate_shellcode(shellcode_hex, arch='32'):
         # check if rootfs exists
         if not os.path.exists(rootfs):
             print(f"Error: Rootfs directory not found at {rootfs}")
-            return
+            return None, None
 
         try:
             ql = Qiling(
@@ -66,7 +64,15 @@ def emulate_shellcode(shellcode_hex, arch='32'):
 
             ql.hook_code(lambda ql, address, size: instruction_hook(ql, address, size, arch))
             ql.run()
+
+            syscalls = [key.replace("ql_syscall_", "") for key in ql.os.stats.syscalls.keys()]
+            strings = list(ql.os.stats.strings.keys())
+
+            return syscalls, strings
+
         except Exception as e:
             print(f"Error during emulation: {str(e)}")
+            return None, None
     except Exception as e:
         print(f"Error: {str(e)}")
+        return None, None

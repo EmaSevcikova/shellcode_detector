@@ -207,22 +207,21 @@ def run_behavior_detection(pid, arch):
     Run behavior-based detection on the process
     """
     detected = False
+    syscalls = None
+    strings = None
     print(f"[*] Running behavior detection on PID {pid}")
     stack_shellcode = extract_shellcode_after_nop_sled(pid)
 
     if not stack_shellcode:
         print(f"No shellcode found in process {pid}")
-        return detected
+        return detected, syscalls, strings
 
     cleaned_shellcode = extract_shellcode(stack_shellcode)
     print(f"[*] Extracted shellcode: {cleaned_shellcode[:20]}...")
 
     if not cleaned_shellcode:
         print("Failed to extract clean shellcode")
-        return detected
-
-    syscalls = None
-    strings = None
+        return detected, syscalls, strings
 
     try:
         syscalls, strings = emulate_shellcode(cleaned_shellcode, arch)

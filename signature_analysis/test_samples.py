@@ -1,7 +1,7 @@
 # Collection of Linux shellcode samples for testing pattern matching
 # IMPORTANT: These are for educational/testing purposes only
-from signature_detector.pattern_manager import PatternManager
-from signature_detector.pattern_detector import PatternDetector
+from signature_analysis.pattern_manager import PatternManager
+from signature_analysis.pattern_detector import PatternDetector
 
 # =============== MALICIOUS SHELLCODE EXAMPLES ===============
 # Sample 1: Basic XOR decoder (32-bit) with fixed key 0xAA

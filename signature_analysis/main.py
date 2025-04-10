@@ -10,18 +10,6 @@ def main():
     pattern_manager = PatternManager("patterns")
     detector = PatternDetector(pattern_manager)
 
-    # Print out the pattern combinations that we're looking for
-    print("Loaded pattern combinations:")
-    for arch, combinations in pattern_manager.pattern_combinations.items():
-        print(f"  {arch}:")
-        for combo in combinations:
-            if isinstance(combo, dict):
-                name = combo.get('name', 'unnamed')
-                cats = combo.get('required_categories', [])
-                print(f"    - {name}: {', '.join(cats)}")
-            else:
-                print(f"    - {', '.join(combo)}")
-
     print("Scanning memory...")
     memory_regions = scanner.scan_memory()
 

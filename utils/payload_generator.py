@@ -1,7 +1,8 @@
 import argparse
+import json
 import struct
 import sys
-
+import os
 
 def process_shellcode(shellcode):
     """
@@ -83,34 +84,40 @@ def generate_payload(total_length, ret_addr, shellcode, arch, nop_size=40, use_p
 #     print(payload)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Generate buffer overflow payloads')
-    parser.add_argument('--length', '-l', type=int, required=True, help='Total payload length in bytes')
-    parser.add_argument('--address', '-a', required=True, help='Return address (hex format)')
-    parser.add_argument('--shellcode', '-s', required=True, help='Shellcode (raw hex or \\x-escaped hex)')
-    parser.add_argument('--arch', '-arch', type=int, choices=[32, 64], required=True,
-                        help='Architecture (32 or 64 bit)')
-    parser.add_argument('--nop', '-n', type=int, default=40, help='NOP sled size')
-    parser.add_argument('--no-padding', action='store_true', help='Use extended NOP sled instead of padding')
 
-    args = parser.parse_args()
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Create path to config file relative to script location
+config_path = os.path.join(script_dir, "payload_config.json")
 
-    try:
-        payload = generate_payload(
-            total_length=args.length,
-            ret_addr=args.address,
-            shellcode=args.shellcode,
-            arch=args.arch,
-            nop_size=args.nop,
-            use_padding=not args.no_padding
-        )
+try:
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError) as e:
+    print(f"Error loading config file: {e}", file=sys.stderr)
+    sys.exit(1)
 
-        sys.stdout.buffer.write(payload)
+config.setdefault('nop', 40)
+config.setdefault('no_padding', False)
 
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+required_params = ['length', 'address', 'shellcode', 'arch']
+missing = [param for param in required_params if param not in config]
+if missing:
+    print(f"Missing required parameters in config file: {', '.join(missing)}", file=sys.stderr)
+    sys.exit(1)
 
+try:
+    payload = generate_payload(
+        total_length=config['length'],
+        ret_addr=config['address'],
+        shellcode=config['shellcode'],
+        arch=config['arch'],
+        nop_size=config['nop'],
+        use_padding=not config['no_padding']
+    )
 
-if __name__ == "__main__":
-    main()
+    sys.stdout.buffer.write(payload)
+
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)

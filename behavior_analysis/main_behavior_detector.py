@@ -6,7 +6,7 @@ from qiling_emulator import emulate_shellcode
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python shellcode_emulator.py <PID>")
+        print("Usage: python main_behavior_detector.py <PID>")
         sys.exit(1)
 
     try:

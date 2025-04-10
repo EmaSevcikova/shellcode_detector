@@ -8,17 +8,17 @@ import queue
 import argparse
 from report import ExploitReportGenerator
 
-sys.path.append('./signature_detector')
-sys.path.append('./behavior_detector')
-sys.path.append('./anomaly_detector')
+sys.path.append('signature_analysis')
+sys.path.append('behavior_analysis')
+sys.path.append('anomaly_analysis')
 
-from signature_detector.memory_scanner import MemoryScanner
-from signature_detector.pattern_manager import PatternManager
-from signature_detector.pattern_detector import PatternDetector
+from signature_analysis.memory_scanner import MemoryScanner
+from signature_analysis.pattern_manager import PatternManager
+from signature_analysis.pattern_detector import PatternDetector
 
-from behavior_detector.extract_stack import extract_shellcode_after_nop_sled
-from behavior_detector.extract_shellcode import extract_shellcode
-from behavior_detector.qiling_emulator import emulate_shellcode
+from behavior_analysis.extract_stack import extract_shellcode_after_nop_sled
+from behavior_analysis.extract_shellcode import extract_shellcode
+from behavior_analysis.qiling_emulator import emulate_shellcode
 
 
 def run_gdb_process(binary_path, payload, arch):
@@ -31,7 +31,7 @@ def run_gdb_process(binary_path, payload, arch):
     if arch == "32":
         gdb_commands = f"""
         file {binary_path}
-        source anomaly_detector/ret_addr_monitor.py
+        source anomaly_analysis/ret_addr_monitor.py
         break func
         monitor-ret func
         """
@@ -39,7 +39,7 @@ def run_gdb_process(binary_path, payload, arch):
     else:
         gdb_commands = f"""
         file {binary_path}
-        source anomaly_detector/ret_addr_monitor_64bit.py
+        source anomaly_analysis/ret_addr_monitor_64bit.py
         break func
         monitor-ret func
         """
@@ -165,7 +165,7 @@ def run_signature_detection(pid):
     """
     print(f"[*] Running signature detection on PID {pid}")
     scanner = MemoryScanner(pid)
-    pattern_manager = PatternManager("signature_detector/patterns")
+    pattern_manager = PatternManager("signature_analysis/patterns")
     detector = PatternDetector(pattern_manager)
 
     memory_regions = scanner.scan_memory()

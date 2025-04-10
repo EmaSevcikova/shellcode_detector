@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 
-class ExploitReportGenerator:
+class Report:
     def __init__(self):
         self.report = {
             "detection": {

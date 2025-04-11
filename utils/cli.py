@@ -24,6 +24,13 @@ def parse_arguments():
     payload_group.add_argument("-p", "--python",
                                help="Path to Python script that generates payload")
 
+    parser.add_argument("--size",
+                        type=int,
+                        help="Size of the payload in bytes")
+
+    parser.add_argument("-f", "--function",
+                        help="Name of the function to analyze")
+
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         help="Enable verbose output")

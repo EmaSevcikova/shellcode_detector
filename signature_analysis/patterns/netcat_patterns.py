@@ -221,20 +221,20 @@ behavior_patterns = {
 pattern_combinations = {
     "32bit": [
         ["syscall", "exec_syscall", "netcat_binary"],  # Basic netcat execution
-        ["netcat_binary", "netcat_args", "network_patterns"],  # Netcat with args and network target
-        ["netcat_binary", "shell_exec"],  # Netcat with shell execution
-        ["netcat_binary", "netcat_args", "shell_exec"],  # Netcat args with shell execution
-        ["netcat_binary", "pipe_redirection"],  # Netcat with pipe redirection
+        # ["netcat_binary", "netcat_args", "network_patterns"],  # Netcat with args and network target
+        # ["netcat_binary", "shell_exec"],  # Netcat with shell execution
+        # ["netcat_binary", "netcat_args", "shell_exec"],  # Netcat args with shell execution
+        # ["netcat_binary", "pipe_redirection"],  # Netcat with pipe redirection
         ["syscall", "exec_syscall", "netcat_binary", "netcat_args"]  # Complete pattern
     ],
     "64bit": [
         ["syscall", "exec_syscall", "netcat_binary"],  # Basic netcat execution
-        ["netcat_binary", "netcat_args", "network_patterns"],  # Netcat with args and network target
-        ["netcat_binary", "shell_exec"],  # Netcat with shell execution
-        ["netcat_binary", "netcat_args", "shell_exec"],  # Netcat args with shell execution
-        ["syscall", "socket_ops", "netcat_binary"],  # Socket operations with netcat
-        ["netcat_binary", "pipe_redirection"],  # Netcat with pipe redirection
-        ["socket_ops", "network_patterns"],  # Socket operations with network patterns (netcat-like behavior)
+        # ["netcat_binary", "netcat_args", "network_patterns"],  # Netcat with args and network target
+        # ["netcat_binary", "shell_exec"],  # Netcat with shell execution
+        # ["netcat_binary", "netcat_args", "shell_exec"],  # Netcat args with shell execution
+        # ["syscall", "socket_ops", "netcat_binary"],  # Socket operations with netcat
+        # ["netcat_binary", "pipe_redirection"],  # Netcat with pipe redirection
+        # ["socket_ops", "network_patterns"],  # Socket operations with network patterns (netcat-like behavior)
         ["syscall", "exec_syscall", "netcat_binary", "netcat_args"]  # Complete pattern
     ]
 }

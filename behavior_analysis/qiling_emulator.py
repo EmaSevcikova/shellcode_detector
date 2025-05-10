@@ -6,6 +6,7 @@ import multiprocessing
 
 
 def instruction_hook(ql, address, size, arch):
+    """Disassembles and prints instructions at a given memory address during emulation."""
     try:
         code = ql.mem.read(address, size)
 
@@ -23,6 +24,7 @@ def instruction_hook(ql, address, size, arch):
 
 
 def _run_emulation(shellcode, rootfs, archtype, arch, result_queue):
+    """Runs shellcode in the Qiling emulator, capturing system calls and strings used."""
     try:
         ql = Qiling(
             code=shellcode,
@@ -44,7 +46,8 @@ def _run_emulation(shellcode, rootfs, archtype, arch, result_queue):
         result_queue.put((None, None))
 
 
-def emulate_shellcode(shellcode_hex, arch='32', timeout=10):
+def emulate_shellcode(shellcode_hex, arch='32', timeout=5):
+    """Emulates shellcode in a sandboxed Linux environment using Qiling and returns system calls and strings used."""
     try:
         # current directory
         script_dir = os.path.dirname(os.path.abspath(__file__))

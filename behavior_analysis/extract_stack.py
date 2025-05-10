@@ -3,6 +3,7 @@ import os
 import binascii
 
 def extract_shellcode_after_nop_sled(pid, min_nop_sled_length=5, max_shellcode_length=256):
+    """Scans a process's stack memory to extract potential shellcode following a NOP sled."""
     try:
         with open(f"/proc/{pid}/maps", 'r') as maps_file:
             mappings = maps_file.readlines()
@@ -35,6 +36,7 @@ def extract_shellcode_after_nop_sled(pid, min_nop_sled_length=5, max_shellcode_l
         return None
 
 def find_first_nop_sled_shellcode(stack_data, min_nop_sled_length, max_shellcode_length):
+    """Locates NOP sled."""
     NOP = b'\x90'
 
     for i in range(len(stack_data) - min_nop_sled_length):

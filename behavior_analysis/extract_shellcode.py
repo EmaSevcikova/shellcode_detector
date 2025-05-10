@@ -1,6 +1,7 @@
 import re
 
 def extract_shellcode(hex_input):
+    """Extracts shellcode from a hex string by removing non-hex characters, skipping NOP sleds, and trimming trailing filler bytes."""
     hex_input = re.sub(r'[^0-9a-fA-F]', '', hex_input)
 
     try:

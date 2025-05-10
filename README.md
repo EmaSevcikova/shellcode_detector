@@ -27,7 +27,7 @@ After installing the requirements, the [rootfs](https://github.com/qilingframewo
 
 - Python 3.+
 - GDB
-- using a virtual environment is reccomended
+- using a virtual environment is recommended
 
 ## Usage
 

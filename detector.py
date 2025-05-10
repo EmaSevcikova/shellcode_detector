@@ -24,7 +24,7 @@ def detector():
     report_handler = ReportHandler()
 
     print("[*] Starting process under GDB with monitoring...")
-    gdb_manager = GdbProcessManager(args.binary_path, args.function, payload, args.size, args.arch)
+    gdb_manager = GdbProcessManager(args.binary_path, args.breakp, payload, args.size, args.arch)
     pid = gdb_manager.run_gdb_process()
 
     if pid is None:

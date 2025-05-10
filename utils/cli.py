@@ -28,12 +28,9 @@ def parse_arguments():
                         type=int,
                         help="Size of the payload in bytes")
 
-    parser.add_argument("-f", "--function",
-                        help="Name of the function to analyze")
+    parser.add_argument("-b", "--breakp",
+                        help="Set breakpoint for analysis")
 
-    parser.add_argument("-v", "--verbose",
-                        action="store_true",
-                        help="Enable verbose output")
 
     parser.add_argument("--interactive",
                         action="store_false",

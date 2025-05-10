@@ -9,9 +9,9 @@ import signal
 class GdbProcessManager:
     """Manages the execution and communication with a GDB process"""
 
-    def __init__(self, binary_path, function, payload, size, arch):
+    def __init__(self, binary_path, breakp, payload, size, arch):
         self.binary_path = binary_path
-        self.function = function
+        self.breakp = breakp
         self.payload = payload
         self.size = size
         self.arch = arch
@@ -28,15 +28,15 @@ class GdbProcessManager:
             gdb_commands = f"""
             file {self.binary_path}
             source anomaly_analysis/ret_addr_monitor.py
-            break {self.function}
-            monitor-ret {self.function}
+            break {self.breakp}
+            monitor-ret {self.breakp}
             """
         else:
             gdb_commands = f"""
             file {self.binary_path}
             source anomaly_analysis/ret_addr_monitor_64bit.py
-            break {self.function}
-            monitor-ret {self.function}
+            break {self.breakp}
+            monitor-ret {self.breakp}
             """
 
         print("[*] GDB commands prepared")

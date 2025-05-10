@@ -1,0 +1,2 @@
+qiling==1.4.6
+capstone==5.0.3

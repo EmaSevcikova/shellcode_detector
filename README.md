@@ -43,6 +43,8 @@ usage: sudo main.py [-h] -a {32,64} [-o OUTPUT] (-s STRING | -p PYTHON)
 #### Required Arguments:
 - `binary_path`: Path to the binary file you want to analyze, test programs are included in `test_data/vulnerable_programs`
 - `-a {32,64}, --arch {32,64}`: Architecture of the binary (32 or 64 bit)
+- `--size SIZE`: Size of the payload in bytes
+- `-b BREAKP, --breakp BREAKP`: Set breakpoint for analysis, use either function name or address
 - One of the following payload options:
   - `-s STRING, --string STRING`: Direct string payload
   - `-p PYTHON, --python PYTHON`: Path to Python script that generates payload, for this purpose `utils/payload_generator.py` can be used, for which a `payload_config.json` needs to be created with payload parameters
@@ -50,8 +52,6 @@ usage: sudo main.py [-h] -a {32,64} [-o OUTPUT] (-s STRING | -p PYTHON)
 #### Optional Arguments:
 - `-h, --help`: Show the help message and exit
 - `-o OUTPUT, --output OUTPUT`: Output file for the JSON report (default: exploit_report.json)
-- `--size SIZE`: Size of the payload in bytes
-- `-b BREAKP, --breakp BREAKP`: Set breakpoint for analysis, use either function name or address
 - `--interactive`: Enable interactive GDB mode
 
 ## Examples
